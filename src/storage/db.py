@@ -6,9 +6,9 @@ servidor de base de datos aparte para un proyecto de este tamaño.
 """
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (

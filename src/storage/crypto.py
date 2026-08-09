@@ -12,6 +12,7 @@ si el archivo `.db` se copia o se filtra sin la clave, su contenido es
 ilegible.
 """
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -44,10 +45,9 @@ def _load_or_create_key() -> bytes:
             return value.encode("utf-8")
 
     key = Fernet.generate_key()
-    try:
+    # Sin .env escribible: se cifra igual, solo que con una clave que no sobrevive al reinicio.
+    with contextlib.suppress(OSError):
         update_env_file(_ENV_PATH, {_ENV_KEY_NAME: key.decode("utf-8")})
-    except OSError:
-        pass  # Sin .env escribible: se cifra igual, solo que con una clave que no sobrevive al reinicio.
     os.environ[_ENV_KEY_NAME] = key.decode("utf-8")
     return key
 

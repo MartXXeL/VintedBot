@@ -1,5 +1,6 @@
 """Logger de consola con colores por nivel, sin dependencias externas."""
 
+import contextlib
 import logging
 import sys
 from typing import Literal
@@ -43,10 +44,8 @@ class InfoFilter(logging.Filter):
 def setup_logger(level: LogLevel = "INFO") -> logging.Logger:
     """Configura y devuelve el logger principal de la aplicación."""
     for stream in (sys.stdout, sys.stderr):
-        try:
+        with contextlib.suppress(AttributeError, ValueError):
             stream.reconfigure(encoding="utf-8", errors="backslashreplace")
-        except (AttributeError, ValueError):
-            pass
 
     logger = logging.getLogger("VintedBot")
     if logger.hasHandlers():
