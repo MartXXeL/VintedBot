@@ -1,11 +1,13 @@
 """Trabajador en segundo plano: publica borradores y negocia ofertas al ritmo seguro.
 
-Un ciclo por cuenta conectada por sesión hace COMO MUCHO una acción que
-escribe algo (publicar un anuncio, o procesar una oferta) y solo si
+Un ciclo por cuenta conectada por sesión hace COMO MUCHO una cosa, y solo si
 `check_rate_limit` lo permite — así el trabajador nunca puede saltarse el
-límite que protege la cuenta, pase lo que pase en el resto del código. La
-publicación no espera a que la IA genere nada: solo publica anuncios que ya
-tienen título, fotos y precio mínimo (ese trabajo lo hace el panel, ver
+límite que protege la cuenta, pase lo que pase en el resto del código. Leer
+conversaciones y dejar una oferta decidida y redactada en 'pending' no
+cuenta para el límite diario (no es una acción que Vinted vea); publicar un
+anuncio o mandar de verdad la respuesta de una oferta, sí. La publicación no
+espera a que la IA genere nada: solo publica anuncios que ya tienen título,
+fotos y precio mínimo (ese trabajo lo hace el panel, ver
 `src/ai/listing_writer.py`); aquí solo se decide CUÁNDO es seguro publicarlo.
 
 `run_account_cycle` es la pieza con lógica real y está pensada para probarse
@@ -28,7 +30,7 @@ from src.negotiation.engine import decide
 from src.negotiation.policy import DEFAULT_POLICY
 from src.storage import accounts_store, actions_store, listings_store, offers_store
 from src.vinted.models import Listing, Offer, VintedAccount
-from src.vinted.rate_limiter import check_rate_limit, pick_next_delay_seconds
+from src.vinted.rate_limiter import RateLimitDecision, check_rate_limit, pick_next_delay_seconds
 from src.vinted.session_client import VintedSessionClient, parse_pending_offers
 
 
@@ -64,13 +66,83 @@ async def run_account_cycle(
             actions_store.record_action(db_path, account.id, "publish_listing")
             return CycleResult(account.id, "published_listing", draft.title)
 
-    if account.auto_reply_offers:
-        handled = await _process_one_offer(db_path, account, session_client, ai_provider)
-        if handled:
-            actions_store.record_action(db_path, account.id, "process_offer")
-            return CycleResult(account.id, "processed_offer", handled)
+    # A diferencia de publicar, preparar una oferta (decidir + redactar la
+    # respuesta) NO es una acción que Vinted vea: es una llamada de lectura
+    # (list_conversations) más trabajo local. Se hace SIEMPRE que hay hueco
+    # en el ritmo, deja la oferta en 'pending' para aprobación humana en el
+    # panel, y solo cuenta como acción del límite diario (y solo se manda de
+    # verdad a Vinted) si `auto_reply_offers` está activo — igual que
+    # AUTO_CONFIRM en Telescraperra: por defecto, un humano aprueba.
+    handled = await _process_one_offer(db_path, account, session_client, ai_provider)
+    if handled:
+        return CycleResult(account.id, "processed_offer", handled)
 
     return CycleResult(account.id, "idle")
+
+
+async def publish_listing_now(
+    db_path: str,
+    account: VintedAccount,
+    listing: Listing,
+    session_client: VintedSessionClient,
+    settings: Settings,
+    now: datetime | None = None,
+) -> RateLimitDecision | None:
+    """Publica UN anuncio concreto ya, para el botón "Publicar ahora" del panel.
+
+    Reutiliza el mismo `check_rate_limit` que el ciclo automático: un clic
+    manual no puede saltarse el límite que protege la cuenta. Devuelve la
+    `RateLimitDecision` de bloqueo si no era buen momento, o `None` si
+    publicó sin problema.
+    """
+    now = now or datetime.now()
+    recent_actions = actions_store.actions_in_last_24h(db_path, account.id, now)
+    rate_decision = check_rate_limit(now, recent_actions, settings.rate_limit)
+    if not rate_decision.allowed:
+        return rate_decision
+
+    await _publish_listing(db_path, listing, session_client)
+    actions_store.record_action(db_path, account.id, "publish_listing")
+    return None
+
+
+async def send_offer_reply_now(
+    db_path: str,
+    account: VintedAccount,
+    offer: Offer,
+    session_client: VintedSessionClient,
+    settings: Settings,
+    now: datetime | None = None,
+) -> RateLimitDecision | None:
+    """Manda YA la respuesta ya decidida/redactada de una oferta (aprobación manual).
+
+    Para el botón "Aceptar" del panel cuando `auto_reply_offers` está
+    desactivado: la oferta ya tiene `decision`/`reply_text` (los puso el
+    trabajador al sondear conversaciones), aquí solo se envían a Vinted, con
+    el mismo límite de ritmo que cualquier otra acción.
+    """
+    if offer.decision is None or offer.reply_text is None:
+        raise ValueError("La oferta todavía no tiene una decisión/respuesta que enviar")
+    if not offer.external_conversation_id or not offer.external_offer_id:
+        raise ValueError("A la oferta le faltan los identificadores de Vinted")
+
+    now = now or datetime.now()
+    recent_actions = actions_store.actions_in_last_24h(db_path, account.id, now)
+    rate_decision = check_rate_limit(now, recent_actions, settings.rate_limit)
+    if not rate_decision.allowed:
+        return rate_decision
+
+    await _send_offer_decision(
+        session_client,
+        offer.external_conversation_id,
+        offer.external_offer_id,
+        offer.decision,
+        offer.counter_amount,
+        offer.reply_text,
+    )
+    offers_store.mark_sent(db_path, offer.id)
+    actions_store.record_action(db_path, account.id, "process_offer")
+    return None
 
 
 def _next_publishable_listing(db_path: str, account_id: int) -> Listing | None:
@@ -138,24 +210,39 @@ async def _process_one_offer(
         offers_store.set_offer_decision(db_path, offer.id, decision.action, decision.counter_amount, reply_text)
 
         if account.auto_reply_offers:
-            await _send_offer_decision(session_client, pending, decision, reply_text)
+            await _send_offer_decision(
+                session_client,
+                str(pending["conversation_id"]),
+                str(pending["offer_id"]),
+                decision.action,
+                decision.counter_amount,
+                reply_text,
+            )
             offers_store.mark_sent(db_path, offer.id)
+            # Solo lo que de verdad toca Vinted (mandar la respuesta) cuenta
+            # para el límite diario — leer conversaciones y redactar no.
+            actions_store.record_action(db_path, account.id, "process_offer")
 
         return f"oferta {offer.id} ({decision.action})"
 
     return None
 
 
-async def _send_offer_decision(session_client, pending: dict, decision, reply_text: str) -> None:
-    conversation_id = str(pending["conversation_id"])
-    offer_id = str(pending["offer_id"])
-    if decision.action == "accept":
+async def _send_offer_decision(
+    session_client: VintedSessionClient,
+    conversation_id: str,
+    offer_id: str,
+    action: str,
+    counter_amount: float | None,
+    reply_text: str,
+) -> None:
+    if action == "accept":
         await session_client.accept_offer(conversation_id, offer_id)
-    elif decision.action == "reject":
+    elif action == "reject":
         await session_client.reject_offer(conversation_id, offer_id)
     else:
-        assert decision.counter_amount is not None  # decide() lo garantiza para "counter"
-        await session_client.counter_offer(conversation_id, offer_id, amount=decision.counter_amount)
+        assert counter_amount is not None  # decide() lo garantiza para "counter"
+        await session_client.counter_offer(conversation_id, offer_id, amount=counter_amount)
     await session_client.send_message(conversation_id, reply_text)
 
 

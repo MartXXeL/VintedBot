@@ -7,8 +7,13 @@ from src.ai.providers import MockAIProvider
 from src.core.settings import RateLimitSettings, Settings
 from src.storage import accounts_store, actions_store, listings_store, offers_store
 from src.storage.db import init_db
-from src.vinted.models import Listing, VintedAccount
-from src.worker.scheduler import run_account_cycle, run_forever
+from src.vinted.models import Listing, Offer, VintedAccount
+from src.worker.scheduler import (
+    publish_listing_now,
+    run_account_cycle,
+    run_forever,
+    send_offer_reply_now,
+)
 
 
 class _FakeSessionClient:
@@ -222,7 +227,7 @@ async def test_auto_reply_offers_manda_la_decision_a_vinted(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_sin_auto_reply_offers_no_manda_nada_a_vinted(tmp_path) -> None:
+async def test_sin_auto_reply_offers_prepara_pero_no_manda_nada_a_vinted(tmp_path) -> None:
     db_path, account = _setup(tmp_path, auto_reply_offers=False)
     listings_store.create_listing(
         db_path, Listing(account_id=account.id, price=30.0, min_price=20.0, status="published", vinted_item_id="item-9")
@@ -232,13 +237,94 @@ async def test_sin_auto_reply_offers_no_manda_nada_a_vinted(tmp_path) -> None:
     ]
     client = _FakeSessionClient(conversations=conversations)
 
-    # auto_reply_offers en False hace que run_account_cycle ni entre en la rama
-    # de ofertas: se queda "idle" a propósito (nadie pidió automatizar esto).
+    # Sin auto_reply_offers, la oferta se decide y se redacta igualmente (para
+    # que espere ya lista en el panel) pero se queda 'pending': nada se manda
+    # a Vinted sin aprobación humana, ni cuenta para el límite diario.
     result = await run_account_cycle(db_path, account, client, MockAIProvider(), SETTINGS)
 
-    assert result.action == "idle"
+    assert result.action == "processed_offer"
     assert client.accepted == []
     assert client.sent_messages == []
+    offer = offers_store.list_offers(db_path, account_id=account.id)[0]
+    assert offer.status == "pending"
+    assert offer.decision == "accept"
+    assert offer.reply_text
+
+
+@pytest.mark.asyncio
+async def test_publish_listing_now_publica_si_hay_ritmo(tmp_path) -> None:
+    db_path, account = _setup(tmp_path, auto_publish=False)  # el botón manual no depende del flag
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
+    listing = listings_store.create_listing(
+        db_path,
+        Listing(account_id=account.id, title="Zapatillas", price=40.0, min_price=25.0, photo_paths=[str(photo)]),
+    )
+    client = _FakeSessionClient(publish_result={"id": "item-55"})
+
+    blocked = await publish_listing_now(db_path, account, listing, client, SETTINGS)
+
+    assert blocked is None
+    published = listings_store.get_listing(db_path, listing.id)
+    assert published.status == "published"
+    assert published.vinted_item_id == "item-55"
+
+
+@pytest.mark.asyncio
+async def test_publish_listing_now_respeta_el_limite_diario(tmp_path) -> None:
+    db_path, account = _setup(tmp_path)
+    for _ in range(50):
+        actions_store.record_action(db_path, account.id, "publish_listing")
+    listing = listings_store.create_listing(
+        db_path, Listing(account_id=account.id, title="X", price=10.0, min_price=5.0, photo_paths=["a.jpg"])
+    )
+    client = _FakeSessionClient()
+
+    blocked = await publish_listing_now(db_path, account, listing, client, SETTINGS)
+
+    assert blocked is not None
+    assert not blocked.allowed
+    assert client.published_payloads == []
+
+
+@pytest.mark.asyncio
+async def test_send_offer_reply_now_manda_la_decision_ya_tomada(tmp_path) -> None:
+    db_path, account = _setup(tmp_path, auto_reply_offers=False)
+    listing = listings_store.create_listing(
+        db_path, Listing(account_id=account.id, price=30.0, min_price=20.0, status="published")
+    )
+    offer = offers_store.create_offer(
+        db_path,
+        Offer(
+            listing_id=listing.id,
+            account_id=account.id,
+            offer_amount=30.0,
+            external_conversation_id="conv-9",
+            external_offer_id="offer-9",
+        ),
+    )
+    offers_store.set_offer_decision(db_path, offer.id, "accept", None, "¡Trato hecho!")
+    offer = offers_store.get_offer(db_path, offer.id)
+    client = _FakeSessionClient()
+
+    blocked = await send_offer_reply_now(db_path, account, offer, client, SETTINGS)
+
+    assert blocked is None
+    assert client.accepted == [("conv-9", "offer-9")]
+    assert client.sent_messages == [("conv-9", "¡Trato hecho!")]
+    assert offers_store.get_offer(db_path, offer.id).status == "sent"
+
+
+@pytest.mark.asyncio
+async def test_send_offer_reply_now_sin_decision_todavia_lanza_error(tmp_path) -> None:
+    db_path, account = _setup(tmp_path)
+    listing = listings_store.create_listing(db_path, Listing(account_id=account.id, price=30.0, min_price=20.0))
+    offer = offers_store.create_offer(
+        db_path, Offer(listing_id=listing.id, account_id=account.id, offer_amount=25.0)
+    )
+
+    with pytest.raises(ValueError):
+        await send_offer_reply_now(db_path, account, offer, _FakeSessionClient(), SETTINGS)
 
 
 @pytest.mark.asyncio
