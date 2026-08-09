@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, Request
 
+from src.core.logger import logger
 from src.core.settings import Settings
 from src.storage import accounts_store, listings_store, offers_store
 from src.ui.deps import (
@@ -62,6 +63,9 @@ async def approve_offer(
         blocked = await send_offer_reply_now(db_path, account, offer, client, settings)
     except ValueError as error:
         return redirect_with_message("/offers", error=str(error))
+    except Exception as error:  # noqa: BLE001 — cualquier fallo al hablar con Vinted se trata igual de cara al usuario
+        logger.warning(f"Fallo al mandar la respuesta de la oferta {offer_id} a Vinted: {error}")
+        return redirect_with_message("/offers", error=f"Vinted rechazó el envío: {error}")
     finally:
         await client.aclose()
 

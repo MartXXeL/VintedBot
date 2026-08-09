@@ -7,6 +7,7 @@ from src.core.security import hash_password
 from src.core.settings import Settings
 from src.storage import accounts_store, listings_store
 from src.ui.app import create_app
+from src.vinted.errors import VintedApiError
 from src.vinted.models import Listing, VintedAccount
 
 TEST_PASSWORD = "una-contraseña-de-prueba"
@@ -246,6 +247,35 @@ def test_publicar_con_todo_listo_publica_de_verdad(tmp_path) -> None:
     updated = listings_store.get_listing(str(settings.database_path), listing.id)
     assert updated.status == "published"
     assert updated.vinted_item_id == "item-777"
+
+
+def test_publicar_con_sesion_rechazada_por_vinted_no_revienta(tmp_path) -> None:
+    """Regresión: Vinted devolviendo un 401 (sesión caducada) no debe tumbar la petición con un 500."""
+
+    class _FailingSessionClient:
+        async def upload_photo(self, photo_bytes: bytes, filename: str = "foto.jpg") -> str:
+            raise VintedApiError("Subir foto falló con 401: invalid_authentication_token", status_code=401)
+
+        async def aclose(self) -> None:
+            pass
+
+    client, settings = _make_client(tmp_path, fake_session_client=_FailingSessionClient())
+    account = accounts_store.create_account(
+        str(settings.database_path), VintedAccount(label="X"), session_cookie="access_token_web=caducada"
+    )
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
+    listing = listings_store.create_listing(
+        str(settings.database_path),
+        Listing(account_id=account.id, title="X", price=20.0, min_price=15.0, photo_paths=[str(photo)]),
+    )
+
+    response = client.post(f"/listings/{listing.id}/publish", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert "error=" in response.headers["location"]
+    updated = listings_store.get_listing(str(settings.database_path), listing.id)
+    assert updated.status == "draft"  # no se marcó publicado
 
 
 def test_publicar_cuenta_api_sin_credenciales_da_error(tmp_path) -> None:

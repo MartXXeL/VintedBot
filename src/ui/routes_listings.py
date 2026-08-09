@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 
 from src.ai.listing_writer import build_listing_draft
 from src.ai.providers import AIProvider
+from src.core.logger import logger
 from src.core.settings import Settings
 from src.storage import accounts_store, listings_store
 from src.ui.deps import (
@@ -218,6 +219,8 @@ async def publish_listing_route(
         client = session_client_factory(settings.vinted_domain, cookie)
         try:
             blocked = await publish_listing_now(db_path, account, listing, client, settings)
+        except Exception as error:  # noqa: BLE001 — cualquier fallo al hablar con Vinted se trata igual de cara al usuario
+            return _publish_failure_redirect(edit_url, error)
         finally:
             await client.aclose()
     elif account.connection_mode == "api":
@@ -228,6 +231,8 @@ async def publish_listing_route(
         api_client = api_client_factory(settings)
         try:
             blocked = await publish_listing_via_api(db_path, account, listing, api_client, settings)
+        except Exception as error:  # noqa: BLE001
+            return _publish_failure_redirect(edit_url, error)
         finally:
             await api_client.aclose()
     else:
@@ -236,6 +241,16 @@ async def publish_listing_route(
     if blocked is not None:
         return redirect_with_message(edit_url, error=f"Bloqueado por el ritmo seguro: {blocked.reason}")
     return redirect_with_message(edit_url, ok="Anuncio publicado")
+
+
+def _publish_failure_redirect(edit_url: str, error: Exception):
+    """Vinted rechazó la petición (sesión caducada, token inválido...) o no hubo red.
+
+    Nunca debe llegar como un 500 sin más: quien lo ve es la persona que
+    acaba de pulsar "Publicar ahora", no alguien mirando logs.
+    """
+    logger.warning(f"Fallo al publicar en Vinted: {error}")
+    return redirect_with_message(edit_url, error=f"Vinted rechazó la publicación: {error}")
 
 
 @router.post("/listings/{listing_id}/delete")

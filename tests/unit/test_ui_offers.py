@@ -4,6 +4,7 @@ from src.core.security import hash_password
 from src.core.settings import Settings
 from src.storage import accounts_store, listings_store, offers_store
 from src.ui.app import create_app
+from src.vinted.errors import VintedApiError
 from src.vinted.models import Listing, Offer, VintedAccount
 
 TEST_PASSWORD = "una-contraseña-de-prueba"
@@ -92,6 +93,29 @@ def test_aprobar_oferta_la_manda_y_la_marca_enviada(tmp_path) -> None:
     assert fake_client.accepted == [("conv-1", "offer-1")]
     assert fake_client.closed is True
     assert offers_store.get_offer(str(settings.database_path), offer_id).status == "sent"
+
+
+def test_aprobar_oferta_con_sesion_rechazada_por_vinted_no_revienta(tmp_path) -> None:
+    """Regresión: un fallo real al hablar con Vinted no debe tumbar la petición con un 500."""
+
+    class _FailingSessionClient:
+        async def accept_offer(self, conversation_id: str, offer_id: str) -> dict:
+            raise VintedApiError("Aceptar oferta falló con 401: sesión caducada", status_code=401)
+
+        async def send_message(self, conversation_id: str, text: str) -> dict:
+            raise AssertionError("no debería llegar a mandar el mensaje si aceptar falló")
+
+        async def aclose(self) -> None:
+            pass
+
+    client, settings = _make_client(tmp_path, fake_session_client=_FailingSessionClient())
+    _account_id, offer_id = _setup_offer(str(settings.database_path))
+
+    response = client.post(f"/offers/{offer_id}/approve", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert "error=" in response.headers["location"]
+    assert offers_store.get_offer(str(settings.database_path), offer_id).status == "pending"
 
 
 def test_aprobar_oferta_inexistente_da_error(tmp_path) -> None:
