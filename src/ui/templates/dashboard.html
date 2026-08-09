@@ -47,6 +47,15 @@
           </form>
         </td>
         <td>
+          {% if row.account.connection_mode == "session" %}
+          <details style="margin-bottom:8px">
+            <summary style="cursor:pointer; font-size:12.5px; color:var(--text-dim)">Reconectar sesión</summary>
+            <form method="post" action="/accounts/{{ row.account.id }}/reconnect" style="margin-top:6px">
+              <textarea name="session_cookie" placeholder="access_token_web=...; refresh_token_web=..." style="min-height:50px"></textarea>
+              <button type="submit" class="ghost" style="margin-top:4px">Actualizar sesión</button>
+            </form>
+          </details>
+          {% endif %}
           <form method="post" action="/accounts/{{ row.account.id }}/delete" data-confirm="¿Desconectar «{{ row.account.label }}»? Se borra su sesión guardada.">
             <button type="submit" class="danger">Desconectar</button>
           </form>

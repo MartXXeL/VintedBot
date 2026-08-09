@@ -65,12 +65,15 @@ async def approve_offer(
         return redirect_with_message("/offers", error=str(error))
     except Exception as error:  # noqa: BLE001 — cualquier fallo al hablar con Vinted se trata igual de cara al usuario
         logger.warning(f"Fallo al mandar la respuesta de la oferta {offer_id} a Vinted: {error}")
+        accounts_store.update_account_status(db_path, account.id, "error")
         return redirect_with_message("/offers", error=f"Vinted rechazó el envío: {error}")
     finally:
         await client.aclose()
 
     if blocked is not None:
         return redirect_with_message("/offers", error=f"Bloqueado por el ritmo seguro: {blocked.reason}")
+    if account.status != "connected":
+        accounts_store.update_account_status(db_path, account.id, "connected")
     return redirect_with_message("/offers", ok="Respuesta enviada a la compradora")
 
 

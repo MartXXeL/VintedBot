@@ -109,13 +109,14 @@ def test_aprobar_oferta_con_sesion_rechazada_por_vinted_no_revienta(tmp_path) ->
             pass
 
     client, settings = _make_client(tmp_path, fake_session_client=_FailingSessionClient())
-    _account_id, offer_id = _setup_offer(str(settings.database_path))
+    account_id, offer_id = _setup_offer(str(settings.database_path))
 
     response = client.post(f"/offers/{offer_id}/approve", follow_redirects=False)
 
     assert response.status_code == 303
     assert "error=" in response.headers["location"]
     assert offers_store.get_offer(str(settings.database_path), offer_id).status == "pending"
+    assert accounts_store.get_account(str(settings.database_path), account_id).status == "error"
 
 
 def test_aprobar_oferta_inexistente_da_error(tmp_path) -> None:

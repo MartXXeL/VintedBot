@@ -29,7 +29,7 @@ from src.ui.deps import (
     require_login,
 )
 from src.vinted.api_client import VintedApiClient
-from src.vinted.models import CONDITION_LABELS_ES, Listing, Sale
+from src.vinted.models import CONDITION_LABELS_ES, Listing, Sale, VintedAccount
 from src.vinted.session_client import VintedSessionClient
 from src.worker.scheduler import publish_listing_now, publish_listing_via_api
 
@@ -220,7 +220,7 @@ async def publish_listing_route(
         try:
             blocked = await publish_listing_now(db_path, account, listing, client, settings)
         except Exception as error:  # noqa: BLE001 — cualquier fallo al hablar con Vinted se trata igual de cara al usuario
-            return _publish_failure_redirect(edit_url, error)
+            return _publish_failure_redirect(db_path, account, edit_url, error)
         finally:
             await client.aclose()
     elif account.connection_mode == "api":
@@ -232,7 +232,7 @@ async def publish_listing_route(
         try:
             blocked = await publish_listing_via_api(db_path, account, listing, api_client, settings)
         except Exception as error:  # noqa: BLE001
-            return _publish_failure_redirect(edit_url, error)
+            return _publish_failure_redirect(db_path, account, edit_url, error)
         finally:
             await api_client.aclose()
     else:
@@ -240,16 +240,23 @@ async def publish_listing_route(
 
     if blocked is not None:
         return redirect_with_message(edit_url, error=f"Bloqueado por el ritmo seguro: {blocked.reason}")
+    # Si venía marcada como error de un fallo anterior, esta publicación
+    # correcta demuestra que la sesión vuelve a funcionar.
+    if account.status != "connected":
+        accounts_store.update_account_status(db_path, account.id, "connected")
     return redirect_with_message(edit_url, ok="Anuncio publicado")
 
 
-def _publish_failure_redirect(edit_url: str, error: Exception):
+def _publish_failure_redirect(db_path: str, account: VintedAccount, edit_url: str, error: Exception):
     """Vinted rechazó la petición (sesión caducada, token inválido...) o no hubo red.
 
     Nunca debe llegar como un 500 sin más: quien lo ve es la persona que
-    acaba de pulsar "Publicar ahora", no alguien mirando logs.
+    acaba de pulsar "Publicar ahora", no alguien mirando logs. Además se
+    marca la cuenta como "error" — sin esto, el dashboard seguiría diciendo
+    "Conectada" indefinidamente aunque la sesión ya no sirva para nada.
     """
-    logger.warning(f"Fallo al publicar en Vinted: {error}")
+    logger.warning(f"Fallo al publicar en Vinted (cuenta {account.id}): {error}")
+    accounts_store.update_account_status(db_path, account.id, "error")
     return redirect_with_message(edit_url, error=f"Vinted rechazó la publicación: {error}")
 
 

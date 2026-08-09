@@ -276,6 +276,26 @@ def test_publicar_con_sesion_rechazada_por_vinted_no_revienta(tmp_path) -> None:
     assert "error=" in response.headers["location"]
     updated = listings_store.get_listing(str(settings.database_path), listing.id)
     assert updated.status == "draft"  # no se marcó publicado
+    assert accounts_store.get_account(str(settings.database_path), account.id).status == "error"
+
+
+def test_publicar_con_exito_recupera_la_cuenta_marcada_como_error(tmp_path) -> None:
+    fake_client = _FakeSessionClient(publish_result={"id": "item-recuperada"})
+    client, settings = _make_client(tmp_path, fake_session_client=fake_client)
+    account = accounts_store.create_account(
+        str(settings.database_path), VintedAccount(label="X"), session_cookie="access_token_web=abc"
+    )
+    accounts_store.update_account_status(str(settings.database_path), account.id, "error")
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
+    listing = listings_store.create_listing(
+        str(settings.database_path),
+        Listing(account_id=account.id, title="X", price=20.0, min_price=15.0, photo_paths=[str(photo)]),
+    )
+
+    client.post(f"/listings/{listing.id}/publish", follow_redirects=False)
+
+    assert accounts_store.get_account(str(settings.database_path), account.id).status == "connected"
 
 
 def test_publicar_cuenta_api_sin_credenciales_da_error(tmp_path) -> None:

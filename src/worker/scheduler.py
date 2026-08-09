@@ -315,8 +315,13 @@ async def run_forever(
                 result = await run_account_cycle(db_path, account, client, ai_provider, settings)
                 if result.action != "idle":
                     logger.info(f"[{account.label}] {result.action}: {result.detail}")
+                # Una vuelta sin excepción demuestra que la sesión sigue viva;
+                # si venía marcada "error" de un fallo anterior, se recupera sola.
+                if result.action != "rate_limited" and account.status != "connected":
+                    accounts_store.update_account_status(db_path, account.id, "connected")
             except Exception as error:  # noqa: BLE001
                 logger.warning(f"[{account.label}] fallo en el ciclo del trabajador: {error}")
+                accounts_store.update_account_status(db_path, account.id, "error")
             finally:
                 await client.aclose()
 

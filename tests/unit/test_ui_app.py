@@ -142,6 +142,53 @@ def test_toggle_automation_flags(tmp_path) -> None:
     assert updated.auto_reply_offers is False  # no se mandó -> se desmarca
 
 
+def test_reconectar_sesion_renueva_la_cookie_y_el_estado(tmp_path) -> None:
+    settings = Settings(database_path=tmp_path / "test.db", dashboard_password_hash=hash_password(TEST_PASSWORD))
+    init_db(settings.database_path)
+    account = accounts_store.create_account(
+        str(settings.database_path), VintedAccount(label="X"), session_cookie="access_token_web=vieja"
+    )
+    accounts_store.update_account_status(str(settings.database_path), account.id, "error")
+
+    client = TestClient(create_app(settings, start_worker=False))
+    client.post("/login", data={"password": TEST_PASSWORD})
+
+    response = client.post(
+        f"/accounts/{account.id}/reconnect",
+        data={"session_cookie": "access_token_web=nueva"},
+        follow_redirects=False,
+    )
+
+    assert "ok=" in response.headers["location"]
+    updated = accounts_store.get_account(str(settings.database_path), account.id)
+    assert updated.status == "connected"
+    assert accounts_store.get_account_session_cookie(str(settings.database_path), account.id) == "access_token_web=nueva"
+
+
+def test_reconectar_sesion_en_blanco_da_error(tmp_path) -> None:
+    settings = Settings(database_path=tmp_path / "test.db", dashboard_password_hash=hash_password(TEST_PASSWORD))
+    init_db(settings.database_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+
+    client = TestClient(create_app(settings, start_worker=False))
+    client.post("/login", data={"password": TEST_PASSWORD})
+
+    response = client.post(
+        f"/accounts/{account.id}/reconnect", data={"session_cookie": "  "}, follow_redirects=False
+    )
+
+    assert "error=" in response.headers["location"]
+
+
+def test_reconectar_cuenta_inexistente_da_error(tmp_path) -> None:
+    client = _make_client(tmp_path)
+    client.post("/login", data={"password": TEST_PASSWORD})
+    response = client.post(
+        "/accounts/999/reconnect", data={"session_cookie": "algo"}, follow_redirects=False
+    )
+    assert "error=" in response.headers["location"]
+
+
 def test_delete_account_desde_el_panel(tmp_path) -> None:
     settings = Settings(database_path=tmp_path / "test.db", dashboard_password_hash=hash_password(TEST_PASSWORD))
     init_db(settings.database_path)

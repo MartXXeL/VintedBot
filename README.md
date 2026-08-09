@@ -259,7 +259,10 @@ editar desde **Ajustes** en el propio panel (que reescribe `.env`).
 
 - **Cuentas**: conectar una cuenta (sesión o API oficial), activar
   publicación/respuesta automáticas por cuenta, ver cuántas acciones lleva
-  hoy frente al tope diario.
+  hoy frente al tope diario. Si Vinted rechaza una publicación o una
+  respuesta (sesión caducada), la cuenta pasa sola a "Error"; **Reconectar
+  sesión** renueva la cookie sin borrar la cuenta ni perder sus anuncios y
+  ofertas — cada acción que vuelve a funcionar la devuelve a "Conectada".
 - **Anuncios**: generar un borrador con IA a partir de fotos, revisarlo y
   editarlo, publicarlo a mano o dejar que el trabajador lo publique solo.
 - **Negociación**: ofertas ya decididas y redactadas, a la espera de
@@ -415,6 +418,9 @@ decides y asumes esos riesgos.
 - [x] Marcar un anuncio como vendido y registrar la venta (sin esto DAC7
       nunca tenía datos reales que evaluar) — probado en real de punta a
       punta: conectar cuenta → generar → publicar → vender → aparece en DAC7
+- [x] Reflejar en la cuenta cuándo Vinted rechaza publicar/responder
+      (pasa a "Error" sola) y poder reconectarla sin borrarla — probado en
+      real: cookie inválida → falla → "Error" → Reconectar sesión → "Conectada"
 
 ### Ideas para más adelante (fuera del alcance de esta primera versión)
 

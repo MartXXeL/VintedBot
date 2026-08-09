@@ -87,6 +87,25 @@ def update_automation(
     return redirect_with_message("/", ok="Ajustes de automatización guardados")
 
 
+@router.post("/accounts/{account_id}/reconnect")
+def reconnect_account(account_id: int, session_cookie: str = Form(...), db_path: str = Depends(get_db_path)):
+    """Renueva la cookie de sesión de una cuenta sin borrarla (y sin perder sus anuncios/ofertas).
+
+    Necesario para cuando la sesión caduca de verdad: sin esto, la única
+    forma de recuperar una cuenta marcada "error" sería borrarla y volver a
+    crearla, perdiendo todo su historial por el `ON DELETE CASCADE`.
+    """
+    account = accounts_store.get_account(db_path, account_id)
+    if account is None:
+        return redirect_with_message("/", error="Cuenta no encontrada")
+    if not session_cookie.strip():
+        return redirect_with_message("/", error="Pega la cookie de sesión nueva")
+
+    accounts_store.set_account_session_cookie(db_path, account_id, session_cookie.strip())
+    accounts_store.update_account_status(db_path, account_id, "connected")
+    return redirect_with_message("/", ok=f"Sesión de «{account.label}» renovada")
+
+
 @router.post("/accounts/{account_id}/delete")
 def delete_account(account_id: int, db_path: str = Depends(get_db_path)):
     accounts_store.delete_account(db_path, account_id)
