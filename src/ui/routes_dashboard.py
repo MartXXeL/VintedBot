@@ -5,11 +5,10 @@ límite de ritmo — lo primero que se ve al entrar al panel.
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
 
 from src.core.settings import Settings
 from src.storage import accounts_store, actions_store
-from src.ui.deps import get_db_path, get_settings, require_login
+from src.ui.deps import get_db_path, get_settings, redirect_with_message, require_login
 from src.vinted.models import VintedAccount
 from src.vinted.rate_limiter import check_rate_limit
 
@@ -55,7 +54,7 @@ def create_account(
     db_path: str = Depends(get_db_path),
 ):
     if connection_mode == "session" and not session_cookie.strip():
-        return RedirectResponse("/?error=Falta+la+cookie+de+sesi%C3%B3n", status_code=303)
+        return redirect_with_message("/", error="Falta la cookie de sesión")
 
     account = accounts_store.create_account(
         db_path,
@@ -66,7 +65,7 @@ def create_account(
         ),
         session_cookie=session_cookie.strip() or None,
     )
-    return RedirectResponse(f"/?ok=Cuenta+«{account.label}»+conectada", status_code=303)
+    return redirect_with_message("/", ok=f"Cuenta «{account.label}» conectada")
 
 
 @router.post("/accounts/{account_id}/automation")
@@ -77,7 +76,7 @@ def update_automation(
     db_path: str = Depends(get_db_path),
 ):
     if accounts_store.get_account(db_path, account_id) is None:
-        return RedirectResponse("/?error=Cuenta+no+encontrada", status_code=303)
+        return redirect_with_message("/", error="Cuenta no encontrada")
 
     accounts_store.set_automation_flags(
         db_path,
@@ -85,10 +84,10 @@ def update_automation(
         auto_publish=auto_publish is not None,
         auto_reply_offers=auto_reply_offers is not None,
     )
-    return RedirectResponse("/?ok=Ajustes+de+automatizaci%C3%B3n+guardados", status_code=303)
+    return redirect_with_message("/", ok="Ajustes de automatización guardados")
 
 
 @router.post("/accounts/{account_id}/delete")
 def delete_account(account_id: int, db_path: str = Depends(get_db_path)):
     accounts_store.delete_account(db_path, account_id)
-    return RedirectResponse("/?ok=Cuenta+desconectada", status_code=303)
+    return redirect_with_message("/", ok="Cuenta desconectada")

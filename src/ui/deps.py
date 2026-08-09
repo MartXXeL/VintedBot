@@ -7,8 +7,10 @@ por todas partes.
 """
 
 from collections.abc import Callable
+from urllib.parse import urlencode
 
 from fastapi import Request
+from fastapi.responses import RedirectResponse
 
 from src.ai.providers import AIProvider
 from src.core.settings import Settings
@@ -56,3 +58,22 @@ def get_session_client_factory(request: Request) -> Callable[[str, str], VintedS
 
 def client_ip(request: Request) -> str:
     return request.client.host if request.client else "desconocida"
+
+
+def redirect_with_message(
+    path: str, *, ok: str | None = None, error: str | None = None, status_code: int = 303
+) -> RedirectResponse:
+    """Redirige a `path` con un aviso en la query (`?ok=...` o `?error=...`), bien escapado.
+
+    A mano (`f"...?error={texto}"`) rompe en cuanto el texto trae un espacio,
+    una tilde o cualquier carácter especial (p. ej. el motivo del limitador
+    de ritmo); `urlencode` es lo único que hace falta para no reinventarlo
+    peor en cada ruta.
+    """
+    params = {}
+    if ok:
+        params["ok"] = ok
+    if error:
+        params["error"] = error
+    query = f"?{urlencode(params)}" if params else ""
+    return RedirectResponse(f"{path}{query}", status_code=status_code)

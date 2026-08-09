@@ -12,7 +12,6 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
 
 from src.ai.listing_writer import build_listing_draft
 from src.ai.providers import AIProvider
@@ -23,6 +22,7 @@ from src.ui.deps import (
     get_db_path,
     get_session_client_factory,
     get_settings,
+    redirect_with_message,
     require_login,
 )
 from src.vinted.models import CONDITION_LABELS_ES, Listing
@@ -79,7 +79,7 @@ async def generate_listing(
     ai_provider: AIProvider = Depends(get_ai_provider),
 ):
     if accounts_store.get_account(db_path, account_id) is None:
-        return RedirectResponse("/listings/new?error=Cuenta+no+encontrada", status_code=303)
+        return redirect_with_message("/listings/new", error="Cuenta no encontrada")
 
     raw_photos = []
     for photo in photos:
@@ -89,7 +89,7 @@ async def generate_listing(
         if content:  # un input de archivo vacío (o un adjunto corrupto) no debe tumbar la petición
             raw_photos.append(content)
     if not raw_photos:
-        return RedirectResponse("/listings/new?error=Sube+al+menos+una+foto+v%C3%A1lida", status_code=303)
+        return redirect_with_message("/listings/new", error="Sube al menos una foto válida")
 
     draft = build_listing_draft(ai_provider, raw_photos, extra_context=extra_context)
 
@@ -117,9 +117,7 @@ async def generate_listing(
             ai_generated=True,
         ),
     )
-    return RedirectResponse(
-        f"/listings/{listing.id}/edit?ok=Borrador+generado%2C+rev%C3%ADsalo+antes+de+publicar", status_code=303
-    )
+    return redirect_with_message(f"/listings/{listing.id}/edit", ok="Borrador generado, revísalo antes de publicar")
 
 
 @router.get("/listings/{listing_id}/edit")
@@ -132,7 +130,7 @@ def edit_listing_form(
     templates = request.app.state.templates
     listing = listings_store.get_listing(db_path, listing_id)
     if listing is None:
-        return RedirectResponse("/listings?error=Anuncio+no+encontrado", status_code=303)
+        return redirect_with_message("/listings", error="Anuncio no encontrado")
 
     photos_dir = _photos_dir(settings)
     photo_urls = [f"/media/photos/{Path(p).relative_to(photos_dir).as_posix()}" for p in listing.photo_paths]
@@ -166,7 +164,7 @@ def update_listing(
     db_path: str = Depends(get_db_path),
 ):
     if listings_store.get_listing(db_path, listing_id) is None:
-        return RedirectResponse("/listings?error=Anuncio+no+encontrado", status_code=303)
+        return redirect_with_message("/listings", error="Anuncio no encontrado")
 
     listings_store.update_listing_fields(
         db_path,
@@ -180,7 +178,7 @@ def update_listing(
         price=price,
         min_price=min_price,
     )
-    return RedirectResponse(f"/listings/{listing_id}/edit?ok=Cambios+guardados", status_code=303)
+    return redirect_with_message(f"/listings/{listing_id}/edit", ok="Cambios guardados")
 
 
 @router.post("/listings/{listing_id}/publish")
@@ -192,21 +190,17 @@ async def publish_listing_route(
 ):
     listing = listings_store.get_listing(db_path, listing_id)
     if listing is None:
-        return RedirectResponse("/listings?error=Anuncio+no+encontrado", status_code=303)
+        return redirect_with_message("/listings", error="Anuncio no encontrado")
 
     account = accounts_store.get_account(db_path, listing.account_id)
     edit_url = f"/listings/{listing_id}/edit"
     if account is None or account.connection_mode != "session":
-        return RedirectResponse(
-            f"{edit_url}?error=Publicar+desde+aqu%C3%AD+solo+funciona+con+cuentas+de+sesi%C3%B3n", status_code=303
-        )
+        return redirect_with_message(edit_url, error="Publicar desde aquí solo funciona con cuentas de sesión")
     if not listing.title or not listing.photo_paths or not listing.min_price:
-        return RedirectResponse(
-            f"{edit_url}?error=Completa+t%C3%ADtulo%2C+fotos+y+precio+m%C3%ADnimo+antes+de+publicar", status_code=303
-        )
+        return redirect_with_message(edit_url, error="Completa título, fotos y precio mínimo antes de publicar")
     cookie = accounts_store.get_account_session_cookie(db_path, account.id)
     if not cookie:
-        return RedirectResponse(f"{edit_url}?error=La+cuenta+no+tiene+una+sesi%C3%B3n+guardada", status_code=303)
+        return redirect_with_message(edit_url, error="La cuenta no tiene una sesión guardada")
 
     client = client_factory(settings.vinted_domain, cookie)
     try:
@@ -215,11 +209,11 @@ async def publish_listing_route(
         await client.aclose()
 
     if blocked is not None:
-        return RedirectResponse(f"{edit_url}?error=Bloqueado+por+el+ritmo+seguro%3A+{blocked.reason}", status_code=303)
-    return RedirectResponse(f"{edit_url}?ok=Anuncio+publicado", status_code=303)
+        return redirect_with_message(edit_url, error=f"Bloqueado por el ritmo seguro: {blocked.reason}")
+    return redirect_with_message(edit_url, ok="Anuncio publicado")
 
 
 @router.post("/listings/{listing_id}/delete")
 def delete_listing_route(listing_id: int, db_path: str = Depends(get_db_path)):
     listings_store.delete_listing(db_path, listing_id)
-    return RedirectResponse("/listings?ok=Anuncio+borrado", status_code=303)
+    return redirect_with_message("/listings", ok="Anuncio borrado")

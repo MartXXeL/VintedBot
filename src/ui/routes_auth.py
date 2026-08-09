@@ -5,7 +5,14 @@ from fastapi.responses import RedirectResponse
 
 from src.core.security import verify_password
 from src.core.settings import Settings
-from src.ui.deps import SESSION_COOKIE_NAME, client_ip, get_login_guard, get_sessions, get_settings
+from src.ui.deps import (
+    SESSION_COOKIE_NAME,
+    client_ip,
+    get_login_guard,
+    get_sessions,
+    get_settings,
+    redirect_with_message,
+)
 from src.ui.login_guard import LoginGuard
 from src.ui.sessions import SessionStore
 
@@ -28,13 +35,11 @@ def login_submit(
 ):
     ip = client_ip(request)
     if login_guard.is_locked_out(ip):
-        return RedirectResponse(
-            "/login?error=Demasiados+intentos+fallidos%2C+espera+unos+minutos", status_code=303
-        )
+        return redirect_with_message("/login", error="Demasiados intentos fallidos, espera unos minutos")
 
     if not verify_password(password, settings.dashboard_password_hash):
         login_guard.register_failure(ip)
-        return RedirectResponse("/login?error=Contrase%C3%B1a+incorrecta", status_code=303)
+        return redirect_with_message("/login", error="Contraseña incorrecta")
 
     login_guard.register_success(ip)
     token = sessions.create()
