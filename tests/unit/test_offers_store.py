@@ -59,6 +59,25 @@ def test_discard_offer(tmp_path) -> None:
     assert offers_store.get_offer(db_path, offer.id).status == "discarded"
 
 
+def test_external_offer_id_evita_duplicados(tmp_path) -> None:
+    db_path, account_id, listing_id = _listing(tmp_path)
+    offers_store.create_offer(
+        db_path,
+        Offer(
+            listing_id=listing_id,
+            account_id=account_id,
+            offer_amount=12.0,
+            external_conversation_id="conv-1",
+            external_offer_id="ext-offer-1",
+        ),
+    )
+
+    found = offers_store.get_offer_by_external_id(db_path, "ext-offer-1")
+    assert found is not None
+    assert found.offer_amount == 12.0
+    assert offers_store.get_offer_by_external_id(db_path, "no-existe") is None
+
+
 def test_list_offers_filtra_por_estado(tmp_path) -> None:
     db_path, account_id, listing_id = _listing(tmp_path)
     a = offers_store.create_offer(

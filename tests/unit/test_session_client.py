@@ -107,6 +107,7 @@ def test_parse_pending_offers_extrae_solo_las_pendientes() -> None:
         {
             "id": "c1",
             "buyer": {"login": "compradora1"},
+            "item": {"id": "item-9"},
             "offer": {"id": "o1", "amount": 12.5, "status": "pending"},
         },
         {"id": "c2", "offer": {"id": "o2", "amount": 5, "status": "accepted"}},
@@ -116,7 +117,13 @@ def test_parse_pending_offers_extrae_solo_las_pendientes() -> None:
     pending = parse_pending_offers(conversations)
 
     assert pending == [
-        {"conversation_id": "c1", "offer_id": "o1", "amount": 12.5, "buyer_name": "compradora1"}
+        {
+            "conversation_id": "c1",
+            "offer_id": "o1",
+            "amount": 12.5,
+            "buyer_name": "compradora1",
+            "vinted_item_id": "item-9",
+        }
     ]
 
 

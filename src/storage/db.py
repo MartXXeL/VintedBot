@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS offers (
     account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     buyer_name TEXT,
     offer_amount REAL NOT NULL,
+    external_conversation_id TEXT,
+    external_offer_id TEXT,
     decision TEXT CHECK (decision IN ('accept', 'counter', 'reject')),
     counter_amount REAL,
     reply_text TEXT,
@@ -63,6 +65,12 @@ CREATE TABLE IF NOT EXISTS offers (
     received_at TEXT NOT NULL DEFAULT (datetime('now')),
     answered_at TEXT
 );
+
+-- Una oferta externa (cuando se conoce su id) no debe importarse dos veces
+-- al volver a sondear conversaciones; NULL se permite repetido (ofertas
+-- creadas a mano desde el panel, sin contrapartida en Vinted).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_offers_external_offer_id
+    ON offers(external_offer_id) WHERE external_offer_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

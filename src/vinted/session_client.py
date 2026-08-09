@@ -91,10 +91,11 @@ def parse_pending_offers(conversations: list[dict]) -> list[dict]:
 
     Forma esperada de cada conversación (ver `docs/vinted_api_notes.md` — es
     la parte de MENOR certeza de toda la integración):
-    `{"id": ..., "offer": {"id": ..., "amount": ..., "status": "pending", ...}, ...}`.
-    Cualquier conversación sin bloque `offer` o con `status` distinto de
-    `"pending"` se ignora en vez de fallar, para que un cambio de formato en
-    una sola conversación no tumbe el listado entero.
+    `{"id": ..., "item": {"id": ...}, "offer": {"id": ..., "amount": ...,
+    "status": "pending", ...}, ...}`. Cualquier conversación sin bloque
+    `offer` o con `status` distinto de `"pending"` se ignora en vez de
+    fallar, para que un cambio de formato en una sola conversación no tumbe
+    el listado entero.
     """
     pending = []
     for conversation in conversations:
@@ -107,6 +108,7 @@ def parse_pending_offers(conversations: list[dict]) -> list[dict]:
                 "offer_id": offer.get("id"),
                 "amount": offer.get("amount"),
                 "buyer_name": conversation.get("buyer", {}).get("login"),
+                "vinted_item_id": conversation.get("item", {}).get("id"),
             }
         )
     return pending

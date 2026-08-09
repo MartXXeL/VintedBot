@@ -71,6 +71,15 @@ def get_listing(db_path: str, listing_id: int) -> Listing | None:
         return _row_to_listing(row) if row else None
 
 
+def get_listing_by_vinted_item_id(db_path: str, vinted_item_id: str) -> Listing | None:
+    """Mapea el id de artículo del lado de Vinted (de una conversación) al anuncio interno."""
+    with connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM listings WHERE vinted_item_id = ?", (vinted_item_id,)
+        ).fetchone()
+        return _row_to_listing(row) if row else None
+
+
 def list_listings(
     db_path: str, account_id: int | None = None, status: str | None = None
 ) -> list[Listing]:

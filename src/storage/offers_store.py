@@ -14,6 +14,8 @@ def _row_to_offer(row: sqlite3.Row) -> Offer:
         account_id=row["account_id"],
         buyer_name=row["buyer_name"],
         offer_amount=row["offer_amount"],
+        external_conversation_id=row["external_conversation_id"],
+        external_offer_id=row["external_offer_id"],
         decision=row["decision"],
         counter_amount=row["counter_amount"],
         reply_text=row["reply_text"],
@@ -26,9 +28,19 @@ def _row_to_offer(row: sqlite3.Row) -> Offer:
 def create_offer(db_path: str, offer: Offer) -> Offer:
     with connect(db_path) as conn:
         cursor = conn.execute(
-            """INSERT INTO offers (listing_id, account_id, buyer_name, offer_amount, status)
-               VALUES (?, ?, ?, ?, ?)""",
-            (offer.listing_id, offer.account_id, offer.buyer_name, offer.offer_amount, offer.status),
+            """INSERT INTO offers
+               (listing_id, account_id, buyer_name, offer_amount,
+                external_conversation_id, external_offer_id, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                offer.listing_id,
+                offer.account_id,
+                offer.buyer_name,
+                offer.offer_amount,
+                offer.external_conversation_id,
+                offer.external_offer_id,
+                offer.status,
+            ),
         )
         offer_id = cursor.lastrowid
         row = conn.execute("SELECT * FROM offers WHERE id = ?", (offer_id,)).fetchone()
@@ -38,6 +50,15 @@ def create_offer(db_path: str, offer: Offer) -> Offer:
 def get_offer(db_path: str, offer_id: int) -> Offer | None:
     with connect(db_path) as conn:
         row = conn.execute("SELECT * FROM offers WHERE id = ?", (offer_id,)).fetchone()
+        return _row_to_offer(row) if row else None
+
+
+def get_offer_by_external_id(db_path: str, external_offer_id: str) -> Offer | None:
+    """Usado al sondear conversaciones, para no importar la misma oferta dos veces."""
+    with connect(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM offers WHERE external_offer_id = ?", (external_offer_id,)
+        ).fetchone()
         return _row_to_offer(row) if row else None
 
 

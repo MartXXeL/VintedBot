@@ -41,12 +41,10 @@ para lo que la vía oficial no cubre (mensajería y ofertas), con un limitador
 de ritmo que respeta la cadencia seguridad documentada para no arriesgar las
 cuentas conectadas.
 
-A diferencia de [Telescraperra](https://github.com/MartXXeL/Telescraperra)
-(que necesita un navegador con anti-detección porque interactúa con una web
-de apuestas muy vigilada), aquí no hace falta pilotar un navegador completo:
-las acciones que importan (crear anuncio, leer/responder ofertas) tienen
-forma de petición HTTP, así que el cliente de la vía de sesión es HTTP
-directo, sin Camoufox ni Playwright.
+No hace falta pilotar un navegador completo: las acciones que importan
+(crear anuncio, leer/responder ofertas) tienen forma de petición HTTP, así
+que el cliente de la vía de sesión es HTTP directo (`httpx`), sin Playwright
+ni ningún navegador de por medio.
 
 ## Arquitectura
 
@@ -97,7 +95,7 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 - [x] Proveedores de IA (Anthropic + simulado) para visión, anuncios y respuestas
 - [x] Clientes de Vinted: API oficial + sesión de respaldo
 - [x] Persistencia: cuentas, anuncios, ofertas, ventas, registro de acciones
-- [ ] Trabajador en segundo plano al ritmo seguro
+- [x] Trabajador en segundo plano al ritmo seguro
 - [ ] Panel web: login, vista general, anuncios, negociación, ajustes, DAC7
 - [ ] Integración continua (tests + linter en cada push)
 - [ ] Documentación final (arquitectura con diagramas, variables de entorno, seguridad, avisos)

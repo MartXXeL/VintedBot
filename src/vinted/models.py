@@ -89,6 +89,11 @@ class Offer(BaseModel):
     account_id: int
     buyer_name: str | None = None
     offer_amount: float
+    # Identificadores del lado de Vinted (conversación + oferta dentro de
+    # ella): permiten reconocer, al volver a consultar conversaciones, una
+    # oferta que ya se procesó, en vez de duplicarla en cada sondeo.
+    external_conversation_id: str | None = None
+    external_offer_id: str | None = None
     decision: NegotiationAction | None = None
     counter_amount: float | None = None
     reply_text: str | None = None

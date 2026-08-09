@@ -91,6 +91,16 @@ def test_mark_sold(tmp_path) -> None:
     assert listings_store.get_listing(db_path, listing.id).status == "sold"
 
 
+def test_get_listing_by_vinted_item_id(tmp_path) -> None:
+    db_path, account_id = _account(tmp_path)
+    listing = listings_store.create_listing(db_path, Listing(account_id=account_id, status="draft"))
+    listings_store.mark_published(db_path, listing.id, vinted_item_id="item-77")
+
+    found = listings_store.get_listing_by_vinted_item_id(db_path, "item-77")
+    assert found.id == listing.id
+    assert listings_store.get_listing_by_vinted_item_id(db_path, "no-existe") is None
+
+
 def test_count_listings_since(tmp_path) -> None:
     db_path, account_id = _account(tmp_path)
     listings_store.create_listing(db_path, Listing(account_id=account_id))
