@@ -92,7 +92,7 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 - [x] Modelos de datos de Vinted (cuenta, anuncio, oferta)
 - [x] Motor de negociación puro (aceptar/contraofertar/rechazar) + tests
 - [x] Limitador de ritmo (cadencia segura, tope diario, pausa nocturna) + tests
-- [ ] Seguimiento fiscal DAC7 por cuenta + tests
+- [x] Seguimiento fiscal DAC7 por cuenta + tests
 - [ ] Planes de precio (por cuenta conectada + volumen) + tests
 - [ ] Proveedores de IA (Anthropic + simulado) para visión, anuncios y respuestas
 - [ ] Clientes de Vinted: API oficial + sesión de respaldo
