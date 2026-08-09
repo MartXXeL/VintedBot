@@ -89,8 +89,8 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 
 - [x] Estructura del proyecto y dependencias
 - [x] Utilidades base (configuración, cifrado en reposo, logger)
-- [ ] Modelos de datos de Vinted (cuenta, anuncio, oferta)
-- [ ] Motor de negociación puro (aceptar/contraofertar/rechazar) + tests
+- [x] Modelos de datos de Vinted (cuenta, anuncio, oferta)
+- [x] Motor de negociación puro (aceptar/contraofertar/rechazar) + tests
 - [ ] Limitador de ritmo (cadencia segura, tope diario, pausa nocturna) + tests
 - [ ] Seguimiento fiscal DAC7 por cuenta + tests
 - [ ] Planes de precio (por cuenta conectada + volumen) + tests
