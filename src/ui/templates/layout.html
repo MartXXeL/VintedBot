@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}VintedBot{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> VintedBot</div>
+    <nav class="nav">
+      <a href="/" class="{{ 'is-active' if active == 'dashboard' else '' }}">Cuentas</a>
+      <a href="/listings" class="{{ 'is-active' if active == 'listings' else '' }}">Anuncios</a>
+      <a href="/offers" class="{{ 'is-active' if active == 'offers' else '' }}">Negociación</a>
+      <a href="/compliance" class="{{ 'is-active' if active == 'compliance' else '' }}">DAC7</a>
+      <a href="/settings" class="{{ 'is-active' if active == 'settings' else '' }}">Ajustes</a>
+    </nav>
+    <div class="topbar-actions">
+      <form method="post" action="/logout"><button class="ghost" type="submit">Salir</button></form>
+    </div>
+  </div>
+  <div class="container">
+    {% if ok %}<div class="flash ok">{{ ok }}</div>{% endif %}
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

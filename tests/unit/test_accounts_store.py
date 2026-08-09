@@ -67,6 +67,20 @@ def test_set_account_session_cookie_actualiza(tmp_path) -> None:
     assert accounts_store.get_account_session_cookie(db_path, account.id) == "nueva-cookie"
 
 
+def test_set_automation_flags(tmp_path) -> None:
+    db_path = _db(tmp_path)
+    account = accounts_store.create_account(db_path, VintedAccount(label="X"))
+
+    accounts_store.set_automation_flags(db_path, account.id, auto_publish=True, auto_reply_offers=True)
+
+    fetched = accounts_store.get_account(db_path, account.id)
+    assert fetched.auto_publish is True
+    assert fetched.auto_reply_offers is True
+
+    accounts_store.set_automation_flags(db_path, account.id, auto_publish=False, auto_reply_offers=False)
+    assert accounts_store.get_account(db_path, account.id).auto_publish is False
+
+
 def test_delete_account(tmp_path) -> None:
     db_path = _db(tmp_path)
     account = accounts_store.create_account(db_path, VintedAccount(label="X"))

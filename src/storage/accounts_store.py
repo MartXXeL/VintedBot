@@ -67,6 +67,17 @@ def update_account_status(db_path: str, account_id: int, status: str) -> None:
         conn.execute("UPDATE accounts SET status = ? WHERE id = ?", (status, account_id))
 
 
+def set_automation_flags(
+    db_path: str, account_id: int, *, auto_publish: bool, auto_reply_offers: bool
+) -> None:
+    """Activa/desactiva la publicación y el envío automáticos (ambos empiezan en False)."""
+    with connect(db_path) as conn:
+        conn.execute(
+            "UPDATE accounts SET auto_publish = ?, auto_reply_offers = ? WHERE id = ?",
+            (int(auto_publish), int(auto_reply_offers), account_id),
+        )
+
+
 def set_account_session_cookie(db_path: str, account_id: int, session_cookie: str) -> None:
     with connect(db_path) as conn:
         conn.execute(

@@ -45,7 +45,10 @@ select = [
     "SIM", # Simplify
     "RET", # Return
 ]
-ignore = ["E501"]
+ignore = [
+    "E501",
+    "B008",  # Depends(...) como valor por defecto es el patrón idiomático de FastAPI
+]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -116,5 +116,8 @@ estado.
 - [x] Persistencia: cuentas, anuncios, ofertas, ventas, registro de acciones
 - [x] Trabajador en segundo plano al ritmo seguro
 - [x] Integración continua (tests + linter en cada push)
-- [ ] Panel web: login, vista general, anuncios, negociación, ajustes, DAC7
+- [x] Panel web: login (con bloqueo por fuerza bruta) y vista general de cuentas
+- [ ] Panel web: anuncios (generar con IA, editar, publicar)
+- [ ] Panel web: negociación (aprobar/descartar ofertas)
+- [ ] Panel web: ajustes y seguimiento DAC7
 - [ ] Documentación final (arquitectura con diagramas, variables de entorno, seguridad, avisos)

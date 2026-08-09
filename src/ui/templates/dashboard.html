@@ -1,0 +1,84 @@
+{% extends "layout.html" %}
+{% block title %}Cuentas · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Cuentas conectadas</h2>
+  {% if not rows %}
+    <p class="empty-state">Todavía no hay ninguna cuenta conectada. Añade la primera abajo.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Cuenta</th>
+        <th>Vía</th>
+        <th>Estado</th>
+        <th>Ritmo hoy</th>
+        <th>Automatización</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><strong>{{ row.account.label }}</strong></td>
+        <td>{{ "Sesión" if row.account.connection_mode == "session" else "API oficial" }}</td>
+        <td>
+          {% if row.account.status == "connected" %}<span class="badge ok">Conectada</span>
+          {% elif row.account.status == "suspended" %}<span class="badge danger">Suspendida</span>
+          {% elif row.account.status == "error" %}<span class="badge danger">Error</span>
+          {% else %}<span class="badge muted">Desconectada</span>{% endif %}
+        </td>
+        <td>
+          {{ row.actions_today }}/{{ row.max_actions }}
+          {% if not row.rate_ok %}<br><span class="meta text-danger">{{ row.rate_reason }}</span>{% endif %}
+        </td>
+        <td>
+          <form method="post" action="/accounts/{{ row.account.id }}/automation">
+            <div class="checkbox-row">
+              <input type="checkbox" id="pub-{{ row.account.id }}" name="auto_publish" {{ "checked" if row.account.auto_publish }}>
+              <label for="pub-{{ row.account.id }}" class="mt-0">Publicar borradores solo</label>
+            </div>
+            <div class="checkbox-row" style="margin-top:4px">
+              <input type="checkbox" id="rep-{{ row.account.id }}" name="auto_reply_offers" {{ "checked" if row.account.auto_reply_offers }}>
+              <label for="rep-{{ row.account.id }}" class="mt-0">Responder ofertas sin aprobar</label>
+            </div>
+            <button type="submit" class="ghost" style="margin-top:6px">Guardar</button>
+          </form>
+        </td>
+        <td>
+          <form method="post" action="/accounts/{{ row.account.id }}/delete" data-confirm="¿Desconectar «{{ row.account.label }}»? Se borra su sesión guardada.">
+            <button type="submit" class="danger">Desconectar</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<div class="panel" style="max-width:480px">
+  <h2>Conectar una cuenta nueva</h2>
+  <form method="post" action="/accounts">
+    <div class="field">
+      <label for="label">Nombre para reconocerla</label>
+      <input id="label" name="label" required placeholder="p. ej. Tienda de ropa de mujer">
+    </div>
+    <div class="field">
+      <label for="connection_mode">Vía de conexión</label>
+      <select id="connection_mode" name="connection_mode">
+        <option value="session">Sesión (rápida, sin alta)</option>
+        <option value="api">API oficial (Pro Integrations)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="session_cookie">Cookie de sesión</label>
+      <textarea id="session_cookie" name="session_cookie" placeholder="access_token_web=...; refresh_token_web=..."></textarea>
+      <p class="meta">Se cifra antes de guardarse. Solo hace falta con la vía de sesión.</p>
+    </div>
+    <button type="submit" class="primary">Conectar cuenta</button>
+  </form>
+</div>
+
+{% endblock %}
