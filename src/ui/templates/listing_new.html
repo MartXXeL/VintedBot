@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+{% block title %}Generar anuncio · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel" style="max-width:520px">
+  <h2>Generar anuncio con IA</h2>
+
+  {% if not accounts %}
+    <p class="empty-state">Conecta una cuenta primero desde <a href="/">Cuentas</a>.</p>
+  {% else %}
+  <form method="post" action="/listings/generate" enctype="multipart/form-data">
+    <div class="field">
+      <label for="account_id">Cuenta</label>
+      <select id="account_id" name="account_id" required>
+        {% for account in accounts %}
+          <option value="{{ account.id }}">{{ account.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="photo-input">Fotos del artículo</label>
+      <input id="photo-input" type="file" name="photos" accept="image/*" multiple required>
+      <div id="photo-preview" style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="price">Precio de venta (€)</label>
+        <input id="price" name="price" type="number" step="0.5" min="0" required>
+      </div>
+      <div class="field">
+        <label for="min_price">Precio mínimo (€)</label>
+        <input id="min_price" name="min_price" type="number" step="0.5" min="0" required>
+      </div>
+    </div>
+    <p class="meta" style="margin-bottom:14px">El precio mínimo nunca se le manda a la IA: solo lo usa el motor de negociación.</p>
+
+    <div class="field">
+      <label for="extra_context">Contexto adicional (opcional)</label>
+      <textarea id="extra_context" name="extra_context" placeholder="p. ej. comprado en 2023, apenas usado, viene de tienda oficial..."></textarea>
+    </div>
+
+    <button type="submit" class="primary">Generar borrador</button>
+  </form>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -6,12 +6,15 @@ atajos tipados para leerlo desde un `Request`, sin repetir `request.app.state...
 por todas partes.
 """
 
+from collections.abc import Callable
+
 from fastapi import Request
 
 from src.ai.providers import AIProvider
 from src.core.settings import Settings
 from src.ui.login_guard import LoginGuard
 from src.ui.sessions import SessionStore
+from src.vinted.session_client import VintedSessionClient
 
 SESSION_COOKIE_NAME = "vintedbot_session"
 
@@ -45,6 +48,10 @@ def get_sessions(request: Request) -> SessionStore:
 
 def get_login_guard(request: Request) -> LoginGuard:
     return request.app.state.login_guard
+
+
+def get_session_client_factory(request: Request) -> Callable[[str, str], VintedSessionClient]:
+    return request.app.state.session_client_factory
 
 
 def client_ip(request: Request) -> str:

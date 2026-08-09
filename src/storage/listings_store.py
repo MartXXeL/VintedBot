@@ -98,6 +98,45 @@ def list_listings(
         return [_row_to_listing(row) for row in rows]
 
 
+def update_listing_fields(
+    db_path: str,
+    listing_id: int,
+    *,
+    title: str,
+    description: str,
+    category: str | None,
+    brand: str | None,
+    size: str | None,
+    item_condition: str | None,
+    price: float,
+    min_price: float | None,
+) -> None:
+    """Guarda la edición manual de un borrador (revisión antes de publicar)."""
+    with connect(db_path) as conn:
+        conn.execute(
+            """UPDATE listings
+               SET title = ?, description = ?, category = ?, brand = ?, size = ?,
+                   item_condition = ?, price = ?, min_price_encrypted = ?
+               WHERE id = ?""",
+            (
+                title,
+                description,
+                category,
+                brand,
+                size,
+                item_condition,
+                price,
+                encrypt_text(str(min_price)) if min_price is not None else None,
+                listing_id,
+            ),
+        )
+
+
+def delete_listing(db_path: str, listing_id: int) -> None:
+    with connect(db_path) as conn:
+        conn.execute("DELETE FROM listings WHERE id = ?", (listing_id,))
+
+
 def mark_published(db_path: str, listing_id: int, vinted_item_id: str) -> None:
     with connect(db_path) as conn:
         conn.execute(

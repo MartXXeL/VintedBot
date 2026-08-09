@@ -7,7 +7,7 @@ de la propia app (`lifespan`), para no necesitar un proceso aparte.
 """
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,7 +26,9 @@ from src.ui.deps import NotAuthenticatedError
 from src.ui.login_guard import LoginGuard
 from src.ui.routes_auth import router as auth_router
 from src.ui.routes_dashboard import router as dashboard_router
+from src.ui.routes_listings import router as listings_router
 from src.ui.sessions import SessionStore
+from src.vinted.session_client import VintedSessionClient
 from src.worker.scheduler import run_forever
 
 _UI_DIR = Path(__file__).resolve().parent
@@ -54,6 +56,7 @@ def create_app(
     ai_provider: AIProvider | None = None,
     sessions: SessionStore | None = None,
     login_guard: LoginGuard | None = None,
+    session_client_factory: Callable[[str, str], VintedSessionClient] | None = None,
     start_worker: bool = True,
 ) -> FastAPI:
     init_db(settings.database_path)
@@ -83,9 +86,19 @@ def create_app(
     app.state.ai_provider = ai_provider
     app.state.sessions = sessions or SessionStore()
     app.state.login_guard = login_guard or LoginGuard()
+    app.state.session_client_factory = session_client_factory or (
+        lambda domain, cookie: VintedSessionClient(domain=domain, session_cookie=cookie)
+    )
     app.state.templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+    # Fotos subidas para generar anuncios (`src/ui/routes_listings.py`): fuera de
+    # `static/` porque son datos del usuario, no del código — StaticFiles exige
+    # que la carpeta ya exista al montar, así que se crea aquí si falta.
+    photos_dir = Path(settings.database_path).parent / "photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/media/photos", StaticFiles(directory=str(photos_dir)), name="photos")
 
     @app.exception_handler(NotAuthenticatedError)
     async def _redirect_to_login(_request: Request, _exc: NotAuthenticatedError) -> RedirectResponse:
@@ -93,5 +106,6 @@ def create_app(
 
     app.include_router(auth_router)
     app.include_router(dashboard_router)
+    app.include_router(listings_router)
 
     return app

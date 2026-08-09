@@ -70,6 +70,60 @@ def test_list_listings_filtra_por_cuenta_y_estado(tmp_path) -> None:
     assert len(all_of_account) == 2
 
 
+def test_update_listing_fields(tmp_path) -> None:
+    db_path, account_id = _account(tmp_path)
+    listing = listings_store.create_listing(db_path, Listing(account_id=account_id, title="Antes"))
+
+    listings_store.update_listing_fields(
+        db_path,
+        listing.id,
+        title="Después",
+        description="Nueva descripción",
+        category="Camisetas",
+        brand="Nike",
+        size="M",
+        item_condition="good",
+        price=20.0,
+        min_price=12.0,
+    )
+
+    fetched = listings_store.get_listing(db_path, listing.id)
+    assert fetched.title == "Después"
+    assert fetched.brand == "Nike"
+    assert fetched.min_price == 12.0
+
+
+def test_update_listing_fields_min_price_none(tmp_path) -> None:
+    db_path, account_id = _account(tmp_path)
+    listing = listings_store.create_listing(
+        db_path, Listing(account_id=account_id, title="X", min_price=10.0)
+    )
+
+    listings_store.update_listing_fields(
+        db_path,
+        listing.id,
+        title="X",
+        description="",
+        category=None,
+        brand=None,
+        size=None,
+        item_condition=None,
+        price=5.0,
+        min_price=None,
+    )
+
+    assert listings_store.get_listing(db_path, listing.id).min_price is None
+
+
+def test_delete_listing(tmp_path) -> None:
+    db_path, account_id = _account(tmp_path)
+    listing = listings_store.create_listing(db_path, Listing(account_id=account_id))
+
+    listings_store.delete_listing(db_path, listing.id)
+
+    assert listings_store.get_listing(db_path, listing.id) is None
+
+
 def test_mark_published(tmp_path) -> None:
     db_path, account_id = _account(tmp_path)
     listing = listings_store.create_listing(db_path, Listing(account_id=account_id, status="draft"))
