@@ -80,6 +80,9 @@ class Settings:
 
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    stripe_price_starter_id: str = ""
+    stripe_price_pro_id: str = ""
+    stripe_price_scale_id: str = ""
 
     rate_limit: RateLimitSettings = field(default_factory=RateLimitSettings)
     dac7: Dac7Settings = field(default_factory=Dac7Settings)
@@ -109,6 +112,9 @@ def load_settings() -> Settings:
         vinted_domain=os.getenv("VINTED_DOMAIN", "www.vinted.es"),
         stripe_secret_key=os.getenv("STRIPE_SECRET_KEY", ""),
         stripe_webhook_secret=os.getenv("STRIPE_WEBHOOK_SECRET", ""),
+        stripe_price_starter_id=os.getenv("STRIPE_PRICE_STARTER_ID", ""),
+        stripe_price_pro_id=os.getenv("STRIPE_PRICE_PRO_ID", ""),
+        stripe_price_scale_id=os.getenv("STRIPE_PRICE_SCALE_ID", ""),
         rate_limit=RateLimitSettings(
             min_seconds=_env_int("RATE_LIMIT_MIN_SECONDS", 180),
             max_seconds=_env_int("RATE_LIMIT_MAX_SECONDS", 600),

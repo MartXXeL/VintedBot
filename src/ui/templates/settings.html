@@ -87,6 +87,41 @@
     </div>
   </div>
 
+  <div class="panel">
+    <h2>Cobro por suscripción (Stripe)</h2>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="stripe_secret_key">Clave secreta</label>
+        <input id="stripe_secret_key" name="stripe_secret_key" type="password"
+               placeholder="{{ 'ya configurada' if settings.stripe_secret_key else 'sk_live_... / sk_test_...' }}">
+      </div>
+      <div class="field">
+        <label for="stripe_webhook_secret">Secreto del webhook</label>
+        <input id="stripe_webhook_secret" name="stripe_webhook_secret" type="password"
+               placeholder="{{ 'ya configurado' if settings.stripe_webhook_secret else 'whsec_...' }}">
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="stripe_price_starter_id">ID de precio — Starter</label>
+        <input id="stripe_price_starter_id" name="stripe_price_starter_id" value="{{ settings.stripe_price_starter_id }}" placeholder="price_...">
+      </div>
+      <div class="field">
+        <label for="stripe_price_pro_id">ID de precio — Pro</label>
+        <input id="stripe_price_pro_id" name="stripe_price_pro_id" value="{{ settings.stripe_price_pro_id }}" placeholder="price_...">
+      </div>
+    </div>
+    <div class="field" style="max-width:calc(50% - 8px)">
+      <label for="stripe_price_scale_id">ID de precio — Scale</label>
+      <input id="stripe_price_scale_id" name="stripe_price_scale_id" value="{{ settings.stripe_price_scale_id }}" placeholder="price_...">
+    </div>
+    <p class="meta">
+      El botón de suscribirse (pestaña Suscripción) solo aparece con la
+      clave secreta configurada. El webhook escucha en
+      <code>/billing/webhook</code>.
+    </p>
+  </div>
+
   <button type="submit" class="primary">Guardar ajustes</button>
 </form>
 

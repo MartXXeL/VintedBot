@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block title %}Suscripción · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Uso actual</h2>
+  <div class="grid grid-2">
+    <div>
+      <div class="meta">Cuentas conectadas</div>
+      <div class="num" style="font-size:22px">{{ connected_accounts }}</div>
+    </div>
+    <div>
+      <div class="meta">Anuncios generados/publicados este mes</div>
+      <div class="num" style="font-size:22px">{{ listings_this_month }}</div>
+    </div>
+  </div>
+  {% if not stripe_configured %}
+  <p class="meta" style="margin-top:14px">
+    Stripe no está configurado (clave de API en Ajustes): puedes ver el coste
+    de cada plan, pero el botón de suscribirse no aparece hasta que la añadas.
+  </p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>Planes</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Plan</th>
+        <th>Base</th>
+        <th>Incluye</th>
+        <th>Con tu uso actual</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for plan_id, plan in plans.items() %}
+      {% set calc = calculations[plan_id] %}
+      <tr>
+        <td>
+          <strong>{{ plan.name }}</strong>
+          {% if plan_id == recommended_plan_id %}<span class="badge ok">Recomendado</span>{% endif %}
+        </td>
+        <td class="num">{{ "%.0f"|format(plan.monthly_price_eur) }} €/mes</td>
+        <td class="meta">{{ plan.included_accounts }} cuentas · {{ plan.included_listings_per_month }} anuncios/mes</td>
+        <td class="num">
+          {{ "%.2f"|format(calc.total_eur) }} €/mes
+          {% if calc.extra_accounts or calc.extra_listings %}
+            <div class="meta">
+              {% if calc.extra_accounts %}+{{ calc.extra_accounts }} cuenta(s) extra{% endif %}
+              {% if calc.extra_listings %}+{{ calc.extra_listings }} anuncio(s) extra{% endif %}
+            </div>
+          {% endif %}
+        </td>
+        <td>
+          {% if stripe_configured %}
+          <form method="post" action="/billing/checkout/{{ plan_id }}">
+            <button type="submit" class="money">Suscribirse</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

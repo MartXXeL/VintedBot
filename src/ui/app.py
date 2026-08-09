@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from src.ai.providers import AIProvider, get_ai_provider
+from src.billing.stripe_client import StripeClient
 from src.core.env_file import update_env_file
 from src.core.logger import logger
 from src.core.security import generate_random_password, hash_password
@@ -25,6 +26,8 @@ from src.storage.db import init_db
 from src.ui.deps import NotAuthenticatedError
 from src.ui.login_guard import LoginGuard
 from src.ui.routes_auth import router as auth_router
+from src.ui.routes_billing import router as billing_router
+from src.ui.routes_billing import webhook_router as billing_webhook_router
 from src.ui.routes_compliance import router as compliance_router
 from src.ui.routes_dashboard import router as dashboard_router
 from src.ui.routes_listings import router as listings_router
@@ -78,6 +81,7 @@ def create_app(
     login_guard: LoginGuard | None = None,
     session_client_factory: Callable[[str, str], VintedSessionClient] | None = None,
     api_client_factory: Callable[[Settings], VintedApiClient] | None = None,
+    stripe_client_factory: Callable[[Settings], StripeClient] | None = None,
     start_worker: bool = True,
 ) -> FastAPI:
     init_db(settings.database_path)
@@ -118,6 +122,9 @@ def create_app(
             client_secret=s.vinted_api_client_secret,
         )
     )
+    app.state.stripe_client_factory = stripe_client_factory or (
+        lambda s: StripeClient(secret_key=s.stripe_secret_key, webhook_secret=s.stripe_webhook_secret)
+    )
     app.state.templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
@@ -137,5 +144,7 @@ def create_app(
     app.include_router(offers_router)
     app.include_router(compliance_router)
     app.include_router(settings_router)
+    app.include_router(billing_router)
+    app.include_router(billing_webhook_router)
 
     return app

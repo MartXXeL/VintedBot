@@ -47,6 +47,11 @@ def update_settings(
     rate_limit_night_end_hour: int = Form(8),
     dac7_alert_amount_eur: float = Form(2000.0),
     dac7_alert_transactions: int = Form(30),
+    stripe_secret_key: str = Form(""),
+    stripe_webhook_secret: str = Form(""),
+    stripe_price_starter_id: str = Form(""),
+    stripe_price_pro_id: str = Form(""),
+    stripe_price_scale_id: str = Form(""),
     settings: Settings = Depends(get_settings),
 ):
     if rate_limit_min_seconds > rate_limit_max_seconds:
@@ -76,6 +81,15 @@ def update_settings(
         updates["VINTED_API_CLIENT_ID"] = vinted_api_client_id.strip()
     if vinted_api_client_secret.strip():
         updates["VINTED_API_CLIENT_SECRET"] = vinted_api_client_secret.strip()
+    if stripe_secret_key.strip():
+        updates["STRIPE_SECRET_KEY"] = stripe_secret_key.strip()
+    if stripe_webhook_secret.strip():
+        updates["STRIPE_WEBHOOK_SECRET"] = stripe_webhook_secret.strip()
+    # Los ID de precio no son secretos (son visibles en cualquier Checkout de
+    # Stripe), así que estos sí se guardan y se muestran tal cual.
+    updates["STRIPE_PRICE_STARTER_ID"] = stripe_price_starter_id.strip()
+    updates["STRIPE_PRICE_PRO_ID"] = stripe_price_pro_id.strip()
+    updates["STRIPE_PRICE_SCALE_ID"] = stripe_price_scale_id.strip()
 
     update_env_file(settings.env_path, updates)
 
@@ -98,6 +112,13 @@ def update_settings(
     settings.rate_limit.night_end_hour = rate_limit_night_end_hour
     settings.dac7.alert_amount_eur = dac7_alert_amount_eur
     settings.dac7.alert_transactions = dac7_alert_transactions
+    if stripe_secret_key.strip():
+        settings.stripe_secret_key = stripe_secret_key.strip()
+    if stripe_webhook_secret.strip():
+        settings.stripe_webhook_secret = stripe_webhook_secret.strip()
+    settings.stripe_price_starter_id = stripe_price_starter_id.strip()
+    settings.stripe_price_pro_id = stripe_price_pro_id.strip()
+    settings.stripe_price_scale_id = stripe_price_scale_id.strip()
 
     return redirect_with_message(
         "/settings", ok="Cambios guardados. Algunos (como cambiar de proveedor de IA) piden reiniciar la aplicación."

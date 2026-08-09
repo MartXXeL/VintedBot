@@ -13,6 +13,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 
 from src.ai.providers import AIProvider
+from src.billing.stripe_client import StripeClient
 from src.core.settings import Settings
 from src.ui.login_guard import LoginGuard
 from src.ui.sessions import SessionStore
@@ -59,6 +60,10 @@ def get_session_client_factory(request: Request) -> Callable[[str, str], VintedS
 
 def get_api_client_factory(request: Request) -> Callable[[Settings], VintedApiClient]:
     return request.app.state.api_client_factory
+
+
+def get_stripe_client_factory(request: Request) -> Callable[[Settings], StripeClient]:
+    return request.app.state.stripe_client_factory
 
 
 def client_ip(request: Request) -> str:

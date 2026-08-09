@@ -91,6 +91,48 @@ def test_guardar_clave_en_blanco_no_borra_la_existente(tmp_path) -> None:
     assert settings.anthropic_api_key == "sk-ant-original"
 
 
+def test_guardar_ajustes_de_stripe(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+
+    client.post(
+        "/settings",
+        data={
+            "anthropic_model": "claude-sonnet-5",
+            "ai_provider": "auto",
+            "vinted_domain": "www.vinted.es",
+            "rate_limit_min_seconds": "180",
+            "rate_limit_max_seconds": "600",
+            "rate_limit_max_actions_per_day": "50",
+            "rate_limit_night_start_hour": "23",
+            "rate_limit_night_end_hour": "8",
+            "dac7_alert_amount_eur": "2000",
+            "dac7_alert_transactions": "30",
+            "stripe_secret_key": "sk_test_nueva",
+            "stripe_webhook_secret": "whsec_nuevo",
+            "stripe_price_starter_id": "price_starter",
+            "stripe_price_pro_id": "price_pro",
+            "stripe_price_scale_id": "price_scale",
+        },
+    )
+
+    assert settings.stripe_secret_key == "sk_test_nueva"
+    assert settings.stripe_webhook_secret == "whsec_nuevo"
+    assert settings.stripe_price_starter_id == "price_starter"
+    env_content = settings.env_path.read_text(encoding="utf-8")
+    assert "STRIPE_SECRET_KEY=sk_test_nueva" in env_content
+    assert "STRIPE_PRICE_PRO_ID=price_pro" in env_content
+
+
+def test_ajustes_no_muestra_la_clave_de_stripe_ya_guardada(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+    settings.stripe_secret_key = "sk_test_secreta_de_verdad"
+
+    response = client.get("/settings")
+
+    assert "sk_test_secreta_de_verdad" not in response.text
+    assert "ya configurada" in response.text
+
+
 def test_cadencia_minima_mayor_que_maxima_da_error(tmp_path) -> None:
     client, _settings = _make_client(tmp_path)
 
