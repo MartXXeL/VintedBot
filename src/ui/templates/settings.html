@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+{% block title %}Ajustes · VintedBot{% endblock %}
+{% block content %}
+
+<form method="post" action="/settings">
+
+  <div class="panel grid grid-2">
+    <div>
+      <h2>Inteligencia artificial</h2>
+      <div class="field">
+        <label for="ai_provider">Proveedor</label>
+        <select id="ai_provider" name="ai_provider">
+          <option value="auto" {{ "selected" if settings.ai_provider == "auto" }}>Automático (IA real si hay clave, si no simulada)</option>
+          <option value="anthropic" {{ "selected" if settings.ai_provider == "anthropic" }}>Forzar Anthropic</option>
+          <option value="mock" {{ "selected" if settings.ai_provider == "mock" }}>Forzar simulado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="anthropic_model">Modelo</label>
+        <input id="anthropic_model" name="anthropic_model" value="{{ settings.anthropic_model }}">
+      </div>
+      <div class="field">
+        <label for="anthropic_api_key">Clave de Anthropic</label>
+        <input id="anthropic_api_key" name="anthropic_api_key" type="password"
+               placeholder="{{ 'ya configurada — deja en blanco para no tocarla' if settings.anthropic_api_key else 'sk-ant-...' }}">
+      </div>
+    </div>
+
+    <div>
+      <h2>Vinted</h2>
+      <div class="field">
+        <label for="vinted_domain">Dominio</label>
+        <input id="vinted_domain" name="vinted_domain" value="{{ settings.vinted_domain }}">
+      </div>
+      <div class="field">
+        <label for="vinted_api_client_id">Client ID (API oficial)</label>
+        <input id="vinted_api_client_id" name="vinted_api_client_id" type="password"
+               placeholder="{{ 'ya configurado' if settings.vinted_api_client_id else 'opcional' }}">
+      </div>
+      <div class="field">
+        <label for="vinted_api_client_secret">Client secret (API oficial)</label>
+        <input id="vinted_api_client_secret" name="vinted_api_client_secret" type="password"
+               placeholder="{{ 'ya configurado' if settings.vinted_api_client_secret else 'opcional' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Ritmo seguro de la vía de sesión</h2>
+    <div class="grid grid-2">
+      <div class="field">
+        <label for="rate_limit_min_seconds">Cadencia mínima (segundos)</label>
+        <input id="rate_limit_min_seconds" name="rate_limit_min_seconds" type="number" min="1" value="{{ settings.rate_limit.min_seconds }}">
+      </div>
+      <div class="field">
+        <label for="rate_limit_max_seconds">Cadencia máxima (segundos)</label>
+        <input id="rate_limit_max_seconds" name="rate_limit_max_seconds" type="number" min="1" value="{{ settings.rate_limit.max_seconds }}">
+      </div>
+      <div class="field">
+        <label for="rate_limit_max_actions_per_day">Tope de acciones al día</label>
+        <input id="rate_limit_max_actions_per_day" name="rate_limit_max_actions_per_day" type="number" min="1" value="{{ settings.rate_limit.max_actions_per_day }}">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="rate_limit_night_start_hour">Pausa nocturna desde</label>
+          <input id="rate_limit_night_start_hour" name="rate_limit_night_start_hour" type="number" min="0" max="23" value="{{ settings.rate_limit.night_start_hour }}">
+        </div>
+        <div class="field">
+          <label for="rate_limit_night_end_hour">hasta</label>
+          <input id="rate_limit_night_end_hour" name="rate_limit_night_end_hour" type="number" min="0" max="23" value="{{ settings.rate_limit.night_end_hour }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Umbrales de aviso DAC7</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="dac7_alert_amount_eur">Importe anual (€)</label>
+        <input id="dac7_alert_amount_eur" name="dac7_alert_amount_eur" type="number" step="0.01" min="0" value="{{ settings.dac7.alert_amount_eur }}">
+      </div>
+      <div class="field">
+        <label for="dac7_alert_transactions">Transacciones anuales</label>
+        <input id="dac7_alert_transactions" name="dac7_alert_transactions" type="number" min="1" value="{{ settings.dac7.alert_transactions }}">
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="primary">Guardar ajustes</button>
+</form>
+
+{% endblock %}

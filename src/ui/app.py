@@ -25,9 +25,11 @@ from src.storage.db import init_db
 from src.ui.deps import NotAuthenticatedError
 from src.ui.login_guard import LoginGuard
 from src.ui.routes_auth import router as auth_router
+from src.ui.routes_compliance import router as compliance_router
 from src.ui.routes_dashboard import router as dashboard_router
 from src.ui.routes_listings import router as listings_router
 from src.ui.routes_offers import router as offers_router
+from src.ui.routes_settings import router as settings_router
 from src.ui.sessions import SessionStore
 from src.vinted.session_client import VintedSessionClient
 from src.worker.scheduler import run_forever
@@ -109,5 +111,7 @@ def create_app(
     app.include_router(dashboard_router)
     app.include_router(listings_router)
     app.include_router(offers_router)
+    app.include_router(compliance_router)
+    app.include_router(settings_router)
 
     return app

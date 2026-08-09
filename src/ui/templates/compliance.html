@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+{% block title %}DAC7 · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Seguimiento fiscal DAC7 · {{ year }}</h2>
+  <p class="meta" style="margin-bottom:16px">
+    Reporte obligatorio a partir de {{ "%.0f"|format(settings.dac7.alert_amount_eur) }}€ de ingresos o
+    {{ settings.dac7.alert_transactions }} transacciones en el año — supera cualquiera de los dos, no
+    hace falta los dos a la vez. Esto es solo un aviso con antelación, no sustituye asesoría fiscal.
+  </p>
+
+  {% if not rows %}
+    <p class="empty-state">Todavía no hay cuentas conectadas.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Cuenta</th>
+        <th>Ingresos {{ year }}</th>
+        <th>Transacciones</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.account.label }}</td>
+        <td class="num">{{ "%.2f"|format(row.status.total_amount) }} €</td>
+        <td class="num">{{ row.status.total_transactions }}</td>
+        <td>
+          {% if row.status.reporting_required %}
+            <span class="badge danger">Reporte obligatorio</span>
+          {% elif row.status.approaching %}
+            <span class="badge warn">Acercándose al umbral</span>
+          {% else %}
+            <span class="badge ok">Al día</span>
+          {% endif %}
+          <div class="meta">{{ row.status.reason }}</div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+{% endblock %}
