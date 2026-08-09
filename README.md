@@ -1,5 +1,6 @@
 # VintedBot
 
+[![Tests](https://github.com/MartXXeL/VintedBot/actions/workflows/tests.yml/badge.svg)](https://github.com/MartXXeL/VintedBot/actions/workflows/tests.yml)
 ![Python](https://img.shields.io/badge/python-3.12+-blue)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%20%7C%20Linux-lightgrey)
 
@@ -19,6 +20,7 @@ paso — la sección [TODO](#todo) refleja el estado real.
 - [Arquitectura](#arquitectura)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Puesta en marcha](#puesta-en-marcha)
+- [Pruebas e integración continua](#pruebas-e-integración-continua)
 - [TODO](#todo)
 
 ## Idea y alcance
@@ -64,7 +66,8 @@ src/
   billing/       Planes de precio y cobro por Stripe
   worker/       Trabajador en segundo plano (ritmo seguro)
   ui/           Panel web (FastAPI + plantillas + estáticos)
-tests/          Pruebas unitarias e de integración
+tests/unit/     Pruebas unitarias — lógica pura y dobles de prueba, sin red
+.github/workflows/tests.yml   CI: lint + tests en cada push
 ```
 
 ## Puesta en marcha
@@ -83,6 +86,22 @@ python -m src.main
 IA simulado, y sin cuentas de Vinted conectadas el panel se puede explorar
 igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 
+## Pruebas e integración continua
+
+```bash
+pip install -r requirements.txt
+ruff check src tests
+pytest tests/unit -q
+```
+
+Sin navegador ni credenciales: los clientes HTTP de Vinted se prueban con
+`httpx.MockTransport`, el cliente de Anthropic con un doble inyectado, y el
+proveedor de IA simulado (`MockAIProvider`) cubre todo el flujo de
+generación de anuncios y negociación sin gastar un céntimo. GitHub Actions
+(`.github/workflows/tests.yml`) ejecuta el linter y la suite completa en
+cada push y pull request contra `main` — el badge de arriba refleja su
+estado.
+
 ## TODO
 
 - [x] Estructura del proyecto y dependencias
@@ -96,6 +115,6 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 - [x] Clientes de Vinted: API oficial + sesión de respaldo
 - [x] Persistencia: cuentas, anuncios, ofertas, ventas, registro de acciones
 - [x] Trabajador en segundo plano al ritmo seguro
+- [x] Integración continua (tests + linter en cada push)
 - [ ] Panel web: login, vista general, anuncios, negociación, ajustes, DAC7
-- [ ] Integración continua (tests + linter en cada push)
 - [ ] Documentación final (arquitectura con diagramas, variables de entorno, seguridad, avisos)

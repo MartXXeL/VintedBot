@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  tests:
+    name: Lint + tests (lógica pura, sin credenciales)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # Sin navegador ni cuenta de Vinted/Anthropic: los clientes HTTP y los
+      # proveedores de IA se prueban con dobles (httpx.MockTransport, un
+      # cliente de Anthropic falso y el proveedor de IA simulado).
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check src tests
+
+      - name: Tests unitarios
+        run: pytest tests/unit -q
