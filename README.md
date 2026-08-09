@@ -266,9 +266,12 @@ editar desde **Ajustes** en el propio panel (que reescribe `.env`).
   Aprobar y enviar o Descartar (salvo envío automático activado).
 - **DAC7**: ingresos y transacciones del año por cuenta frente a los
   umbrales de aviso.
-- **Ajustes**: IA, Vinted, ritmo seguro y umbrales DAC7 — escribe en
-  `.env`; algunos cambios (sobre todo el proveedor de IA) piden reiniciar
-  el proceso para aplicarse del todo.
+- **Suscripción**: uso real (cuentas + anuncios del mes) frente a los tres
+  planes, con el recomendado marcado; botón de Stripe Checkout si hay
+  clave configurada.
+- **Ajustes**: IA, Vinted, ritmo seguro, umbrales DAC7 y Stripe — escribe
+  en `.env`; algunos cambios (sobre todo el proveedor de IA) piden
+  reiniciar el proceso para aplicarse del todo.
 
 ## Pruebas e integración continua
 
@@ -337,26 +340,34 @@ cuentas y anuncios, y el exceso cobrado por unidad. `estimate_ai_cost_usd`
 calcula el coste real de una llamada a la IA con los precios de Claude
 Sonnet 5 (3 $/M tokens de entrada, 15 $/M de salida): generar un anuncio
 completo cuesta del orden de un céntimo de dólar, muy por debajo de
-cualquiera de los planes. No hay una pasarela de cobro activa en el panel
-todavía — el cliente de Stripe está scaffolded pero sin wiring a una
-pantalla de suscripción.
+cualquiera de los planes.
+
+La pestaña **Suscripción** del panel muestra el uso real (cuentas conectadas
++ anuncios del mes) frente a los tres planes y su plan recomendado; con
+`STRIPE_SECRET_KEY` configurada (Ajustes), el botón "Suscribirse" abre un
+Stripe Checkout de verdad (`src/billing/stripe_client.py`), y
+`POST /billing/webhook` verifica la firma de los eventos entrantes — sin
+clave, la pestaña sigue mostrando los números pero oculta el botón de pago.
 
 ## Limitaciones conocidas
 
-- **Los endpoints de la vía de sesión no están confirmados al 100%.**
-  Vinted no publica una API pública; `src/vinted/session_client.py` usa el
-  patrón de varios wrappers no oficiales independientes (alta certeza en
-  fotos/artículos, media en conversaciones, **baja en aceptar/rechazar/
-  contraofertar una oferta**, ver
-  [docs/vinted_api_notes.md](docs/vinted_api_notes.md)). Es la pieza a
-  verificar primero contra tráfico real antes de usarlo con una cuenta que
-  importe.
+- **Los endpoints de ofertas de la vía de sesión no están confirmados al
+  100%.** Vinted no publica una API pública; `src/vinted/session_client.py`
+  usa el patrón de varios wrappers no oficiales independientes (alta
+  certeza en fotos/artículos, media en conversaciones, **baja en
+  aceptar/rechazar/contraofertar una oferta**, ver
+  [docs/vinted_api_notes.md](docs/vinted_api_notes.md)). No se puede
+  verificar sin una cuenta de Vinted real conectada — es lo primero a
+  comprobar contra tráfico real antes de usarlo con una cuenta que importe.
 - **Guardar en Ajustes no reinicia el proceso.** Los cambios en `.env` se
   reflejan al instante en la configuración en memoria, pero algo ya
   construido al arrancar (el cliente de Anthropic del trabajador, p. ej.)
   solo lo recoge un reinicio real.
-- **Sin pasarela de cobro activa.** `src/billing/` calcula precios y coste,
-  pero conectar Stripe a una pantalla de suscripción real queda pendiente.
+- **El webhook de Stripe solo registra el evento.** Sin un modelo de
+  clientes/suscripciones propio (el panel es de un solo operador),
+  `POST /billing/webhook` verifica la firma y lo deja logueado — conectarlo
+  a algo persistente (marcar la suscripción como activa, etc.) depende de
+  cómo se termine desplegando VintedBot como servicio.
 
 ## Aviso
 
@@ -390,12 +401,19 @@ decides y asumes esos riesgos.
 - [x] Panel web: ajustes y seguimiento DAC7
 - [x] Punto de entrada (`python -m src.main`) — probado de extremo a extremo
 - [x] Documentación final (arquitectura con diagramas, variables de entorno, seguridad, avisos)
+- [x] Publicar también por la vía oficial (API) desde "Publicar ahora"
+- [x] Pantalla de Suscripción: uso real, planes, Stripe Checkout + webhook firmado
+- [x] Probado de extremo a extremo con el servidor real (login, conectar
+      cuenta, generar anuncio con foto real, editar, publicar, ajustes,
+      DAC7) — encontró y corrigió un fallo real: un rechazo de Vinted al
+      publicar (sesión caducada) tumbaba la petición con un 500 en vez de
+      avisar con un mensaje
 
 ### Ideas para más adelante (fuera del alcance de esta primera versión)
 
-- [x] Enganchar "Publicar ahora" también a la vía oficial (API)
 - [ ] Verificar los endpoints de ofertas de la vía de sesión contra tráfico
       real — necesita una cuenta de Vinted real conectada, no se puede
       comprobar solo con tests
-- [ ] Pantalla de suscripción con Stripe Checkout + webhooks
 - [ ] Recordar/mostrar el histórico de ventas por anuncio, no solo el total DAC7
+- [ ] Modelo de clientes/suscripciones propio para que el webhook de Stripe
+      actualice algo persistente, no solo lo registre
