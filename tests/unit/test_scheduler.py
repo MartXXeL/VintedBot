@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -171,8 +171,16 @@ async def test_oferta_duplicada_no_se_reimporta(tmp_path) -> None:
     ]
     client = _FakeSessionClient(conversations=conversations)
 
-    first = await run_account_cycle(db_path, account, client, MockAIProvider(), SETTINGS)
-    second = await run_account_cycle(db_path, account, client, MockAIProvider(), SETTINGS)
+    # `now` explícito y separado más que `min_seconds`: lo que se prueba aquí
+    # es la deduplicación, no el limitador de ritmo — con el reloj real, dos
+    # llamadas seguidas caen casi siempre dentro de la cadencia mínima y la
+    # segunda da "rate_limited" en vez de "idle" (más probable aún en un
+    # runner rápido/en CI que en una máquina de desarrollo más lenta).
+    first_now = datetime.now()
+    second_now = first_now + timedelta(seconds=SETTINGS.rate_limit.min_seconds + 1)
+
+    first = await run_account_cycle(db_path, account, client, MockAIProvider(), SETTINGS, now=first_now)
+    second = await run_account_cycle(db_path, account, client, MockAIProvider(), SETTINGS, now=second_now)
 
     assert first.action == "processed_offer"
     assert second.action == "idle"  # ya no queda ninguna oferta nueva que procesar
