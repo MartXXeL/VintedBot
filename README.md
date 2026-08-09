@@ -118,6 +118,6 @@ estado.
 - [x] Integración continua (tests + linter en cada push)
 - [x] Panel web: login (con bloqueo por fuerza bruta) y vista general de cuentas
 - [x] Panel web: anuncios (generar con IA, editar, publicar)
-- [ ] Panel web: negociación (aprobar/descartar ofertas)
+- [x] Panel web: negociación (aprobar/descartar ofertas)
 - [ ] Panel web: ajustes y seguimiento DAC7
 - [ ] Documentación final (arquitectura con diagramas, variables de entorno, seguridad, avisos)

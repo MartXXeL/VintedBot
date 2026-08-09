@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block title %}Negociación · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Ofertas pendientes de aprobación</h2>
+
+  {% if not offers %}
+    <p class="empty-state">No hay ninguna oferta esperando revisión. El trabajador en segundo plano las va dejando aquí en cuanto llegan.</p>
+  {% else %}
+    {% for offer in offers %}
+    {% set listing = listings.get(offer.listing_id) %}
+    <div class="offer-card">
+      <div style="display:flex; justify-content:space-between; align-items:baseline">
+        <strong>{{ listing.title if listing else "Anuncio #" ~ offer.listing_id }}</strong>
+        <span class="meta">{{ accounts[offer.account_id].label if offer.account_id in accounts else "" }} · {{ offer.buyer_name or "comprador/a" }}</span>
+      </div>
+
+      <div class="amounts">
+        <div>
+          <div class="label">Oferta recibida</div>
+          <div class="value">{{ "%.2f"|format(offer.offer_amount) }} €</div>
+        </div>
+        {% if offer.decision == "counter" and offer.counter_amount is not none %}
+        <div>
+          <div class="label">Contraoferta</div>
+          <div class="value text-money">{{ "%.2f"|format(offer.counter_amount) }} €</div>
+        </div>
+        {% endif %}
+        <div>
+          <div class="label">Decisión</div>
+          <div class="value">
+            {% if offer.decision == "accept" %}<span class="badge ok">Aceptar</span>
+            {% elif offer.decision == "counter" %}<span class="badge warn">Contraofertar</span>
+            {% elif offer.decision == "reject" %}<span class="badge danger">Rechazar</span>
+            {% else %}<span class="badge muted">Sin decidir</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if offer.reply_text %}
+      <div class="reply-text">{{ offer.reply_text }}</div>
+      {% endif %}
+
+      <div class="btn-row">
+        <form method="post" action="/offers/{{ offer.id }}/approve">
+          <button type="submit" class="money">Aprobar y enviar</button>
+        </form>
+        <form method="post" action="/offers/{{ offer.id }}/discard" data-confirm="¿Descartar esta oferta sin responder?">
+          <button type="submit" class="danger">Descartar</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+{% endblock %}
