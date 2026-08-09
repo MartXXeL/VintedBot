@@ -16,6 +16,7 @@ from src.ai.providers import AIProvider
 from src.core.settings import Settings
 from src.ui.login_guard import LoginGuard
 from src.ui.sessions import SessionStore
+from src.vinted.api_client import VintedApiClient
 from src.vinted.session_client import VintedSessionClient
 
 SESSION_COOKIE_NAME = "vintedbot_session"
@@ -54,6 +55,10 @@ def get_login_guard(request: Request) -> LoginGuard:
 
 def get_session_client_factory(request: Request) -> Callable[[str, str], VintedSessionClient]:
     return request.app.state.session_client_factory
+
+
+def get_api_client_factory(request: Request) -> Callable[[Settings], VintedApiClient]:
+    return request.app.state.api_client_factory
 
 
 def client_ip(request: Request) -> str:

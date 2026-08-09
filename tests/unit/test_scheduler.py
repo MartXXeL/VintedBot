@@ -1,15 +1,19 @@
 import asyncio
 from datetime import datetime, timedelta
 
+import httpx
 import pytest
 
 from src.ai.providers import MockAIProvider
 from src.core.settings import RateLimitSettings, Settings
 from src.storage import accounts_store, actions_store, listings_store, offers_store
 from src.storage.db import init_db
+from src.vinted import endpoints
+from src.vinted.api_client import VintedApiClient
 from src.vinted.models import Listing, Offer, VintedAccount
 from src.worker.scheduler import (
     publish_listing_now,
+    publish_listing_via_api,
     run_account_cycle,
     run_forever,
     send_offer_reply_now,
@@ -285,6 +289,68 @@ async def test_publish_listing_now_respeta_el_limite_diario(tmp_path) -> None:
     assert blocked is not None
     assert not blocked.allowed
     assert client.published_payloads == []
+
+
+def _fake_api_client(handler) -> VintedApiClient:
+    transport = httpx.MockTransport(handler)
+    http_client = httpx.AsyncClient(base_url="https://api.vinted.test", transport=transport)
+    return VintedApiClient(
+        base_url="https://api.vinted.test", client_id="cid", client_secret="secret", http_client=http_client
+    )
+
+
+@pytest.mark.asyncio
+async def test_publish_listing_via_api_publica_con_fotos_en_base64(tmp_path) -> None:
+    db_path, account = _setup(tmp_path)
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
+    listing = listings_store.create_listing(
+        db_path,
+        Listing(account_id=account.id, title="Bolso", price=25.0, min_price=15.0, photo_paths=[str(photo)]),
+    )
+
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        if request.url.path == endpoints.OAUTH_TOKEN:
+            return httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
+        import json
+
+        body = json.loads(request.content)
+        assert body["title"] == "Bolso"
+        assert len(body["photos_base64"]) == 1
+        return httpx.Response(201, json={"id": "official-item-1"})
+
+    api_client = _fake_api_client(handler)
+
+    blocked = await publish_listing_via_api(db_path, account, listing, api_client, SETTINGS)
+
+    assert blocked is None
+    assert calls == [endpoints.OAUTH_TOKEN, endpoints.API_ITEMS]
+    published = listings_store.get_listing(db_path, listing.id)
+    assert published.status == "published"
+    assert published.vinted_item_id == "official-item-1"
+
+
+@pytest.mark.asyncio
+async def test_publish_listing_via_api_respeta_el_limite_de_ritmo(tmp_path) -> None:
+    db_path, account = _setup(tmp_path)
+    for _ in range(50):
+        actions_store.record_action(db_path, account.id, "publish_listing")
+    listing = listings_store.create_listing(
+        db_path, Listing(account_id=account.id, title="X", price=10.0, min_price=5.0)
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("no debería llamar a Vinted si el ritmo lo bloquea")
+
+    api_client = _fake_api_client(handler)
+
+    blocked = await publish_listing_via_api(db_path, account, listing, api_client, SETTINGS)
+
+    assert blocked is not None
+    assert not blocked.allowed
 
 
 @pytest.mark.asyncio

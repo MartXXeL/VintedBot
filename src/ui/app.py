@@ -31,6 +31,7 @@ from src.ui.routes_listings import router as listings_router
 from src.ui.routes_offers import router as offers_router
 from src.ui.routes_settings import router as settings_router
 from src.ui.sessions import SessionStore
+from src.vinted.api_client import VintedApiClient
 from src.vinted.session_client import VintedSessionClient
 from src.worker.scheduler import run_forever
 
@@ -76,6 +77,7 @@ def create_app(
     sessions: SessionStore | None = None,
     login_guard: LoginGuard | None = None,
     session_client_factory: Callable[[str, str], VintedSessionClient] | None = None,
+    api_client_factory: Callable[[Settings], VintedApiClient] | None = None,
     start_worker: bool = True,
 ) -> FastAPI:
     init_db(settings.database_path)
@@ -108,6 +110,13 @@ def create_app(
     app.state.login_guard = login_guard or LoginGuard()
     app.state.session_client_factory = session_client_factory or (
         lambda domain, cookie: VintedSessionClient(domain=domain, session_cookie=cookie)
+    )
+    app.state.api_client_factory = api_client_factory or (
+        lambda s: VintedApiClient(
+            base_url=s.vinted_api_base_url,
+            client_id=s.vinted_api_client_id,
+            client_secret=s.vinted_api_client_secret,
+        )
     )
     app.state.templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 

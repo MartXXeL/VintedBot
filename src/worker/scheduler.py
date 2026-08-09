@@ -17,6 +17,7 @@ unitariamente, igual que el bucle equivalente de Telescraperra.
 """
 
 import asyncio
+import base64
 import contextlib
 from dataclasses import dataclass
 from datetime import datetime
@@ -29,6 +30,7 @@ from src.core.settings import Settings
 from src.negotiation.engine import decide
 from src.negotiation.policy import DEFAULT_POLICY
 from src.storage import accounts_store, actions_store, listings_store, offers_store
+from src.vinted.api_client import VintedApiClient
 from src.vinted.models import Listing, Offer, VintedAccount
 from src.vinted.rate_limiter import RateLimitDecision, check_rate_limit, pick_next_delay_seconds
 from src.vinted.session_client import VintedSessionClient, parse_pending_offers
@@ -102,6 +104,50 @@ async def publish_listing_now(
         return rate_decision
 
     await _publish_listing(db_path, listing, session_client)
+    actions_store.record_action(db_path, account.id, "publish_listing")
+    return None
+
+
+async def publish_listing_via_api(
+    db_path: str,
+    account: VintedAccount,
+    listing: Listing,
+    api_client: VintedApiClient,
+    settings: Settings,
+    now: datetime | None = None,
+) -> RateLimitDecision | None:
+    """Publica UN anuncio por la vía oficial (Pro Integrations), para "Publicar ahora".
+
+    A diferencia de la vía de sesión, la API oficial no tiene un paso de
+    subida de fotos aparte: se mandan en base64 dentro del mismo payload de
+    creación del artículo — el patrón habitual en APIs de partners REST.
+    Mismo `check_rate_limit` que la vía de sesión: aunque el riesgo de la vía
+    oficial es distinto (es una integración dada de alta, no una sesión
+    prestada), un único freno es más simple de razonar que dos políticas.
+    """
+    now = now or datetime.now()
+    recent_actions = actions_store.actions_in_last_24h(db_path, account.id, now)
+    rate_decision = check_rate_limit(now, recent_actions, settings.rate_limit)
+    if not rate_decision.allowed:
+        return rate_decision
+
+    photos_base64 = []
+    for path in listing.photo_paths:
+        photo_bytes = await asyncio.to_thread(Path(path).read_bytes)
+        photos_base64.append(base64.b64encode(photo_bytes).decode("ascii"))
+
+    payload = {
+        "title": listing.title,
+        "description": listing.description,
+        "price": listing.price,
+        "brand": listing.brand,
+        "size": listing.size,
+        "category": listing.category,
+        "condition": listing.item_condition,
+        "photos_base64": photos_base64,
+    }
+    result = await api_client.create_item(payload)
+    listings_store.mark_published(db_path, listing.id, vinted_item_id=str(result["id"]))
     actions_store.record_action(db_path, account.id, "publish_listing")
     return None
 

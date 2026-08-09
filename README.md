@@ -351,9 +351,6 @@ pantalla de suscripción.
   [docs/vinted_api_notes.md](docs/vinted_api_notes.md)). Es la pieza a
   verificar primero contra tráfico real antes de usarlo con una cuenta que
   importe.
-- **"Publicar ahora" desde el panel solo funciona con cuentas de vía de
-  sesión.** La vía oficial tiene su cliente (`src/vinted/api_client.py`)
-  pero no está enganchado a ningún botón del panel todavía.
 - **Guardar en Ajustes no reinicia el proceso.** Los cambios en `.env` se
   reflejan al instante en la configuración en memoria, pero algo ya
   construido al arrancar (el cliente de Anthropic del trabajador, p. ej.)
@@ -396,7 +393,9 @@ decides y asumes esos riesgos.
 
 ### Ideas para más adelante (fuera del alcance de esta primera versión)
 
-- [ ] Verificar los endpoints de ofertas de la vía de sesión contra tráfico real
-- [ ] Enganchar "Publicar ahora" también a la vía oficial (API)
+- [x] Enganchar "Publicar ahora" también a la vía oficial (API)
+- [ ] Verificar los endpoints de ofertas de la vía de sesión contra tráfico
+      real — necesita una cuenta de Vinted real conectada, no se puede
+      comprobar solo con tests
 - [ ] Pantalla de suscripción con Stripe Checkout + webhooks
 - [ ] Recordar/mostrar el histórico de ventas por anuncio, no solo el total DAC7

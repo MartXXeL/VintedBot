@@ -29,6 +29,20 @@ class _FakeSessionClient:
         self.closed = True
 
 
+class _FakeApiClient:
+    def __init__(self, create_item_result=None):
+        self.create_item_result = create_item_result or {"id": "official-1"}
+        self.created_payloads = []
+        self.closed = False
+
+    async def create_item(self, payload: dict) -> dict:
+        self.created_payloads.append(payload)
+        return self.create_item_result
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
 def _fake_jpeg_bytes() -> bytes:
     image = Image.new("RGB", (200, 200), (10, 20, 30))
     buffer = io.BytesIO()
@@ -234,7 +248,7 @@ def test_publicar_con_todo_listo_publica_de_verdad(tmp_path) -> None:
     assert updated.vinted_item_id == "item-777"
 
 
-def test_publicar_cuenta_api_no_soportado_desde_el_panel(tmp_path) -> None:
+def test_publicar_cuenta_api_sin_credenciales_da_error(tmp_path) -> None:
     client, settings = _make_client(tmp_path)
     account = accounts_store.create_account(
         str(settings.database_path), VintedAccount(label="X", connection_mode="api")
@@ -247,6 +261,39 @@ def test_publicar_cuenta_api_no_soportado_desde_el_panel(tmp_path) -> None:
     response = client.post(f"/listings/{listing.id}/publish", follow_redirects=False)
 
     assert "error=" in response.headers["location"]
+
+
+def test_publicar_cuenta_api_con_credenciales_publica_de_verdad(tmp_path) -> None:
+    fake_api_client = _FakeApiClient(create_item_result={"id": "official-42"})
+    settings = Settings(
+        database_path=tmp_path / "test.db",
+        env_path=tmp_path / ".env",
+        dashboard_password_hash=hash_password(TEST_PASSWORD),
+        vinted_api_client_id="cid",
+        vinted_api_client_secret="secret",
+    )
+    app = create_app(settings, start_worker=False, api_client_factory=lambda s: fake_api_client)
+    client = TestClient(app)
+    client.post("/login", data={"password": TEST_PASSWORD})
+
+    account = accounts_store.create_account(
+        str(settings.database_path), VintedAccount(label="X", connection_mode="api")
+    )
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
+    listing = listings_store.create_listing(
+        str(settings.database_path),
+        Listing(account_id=account.id, title="Bolso", price=20.0, min_price=15.0, photo_paths=[str(photo)]),
+    )
+
+    response = client.post(f"/listings/{listing.id}/publish", follow_redirects=False)
+
+    assert "ok=" in response.headers["location"]
+    assert fake_api_client.closed is True
+    assert len(fake_api_client.created_payloads) == 1
+    updated = listings_store.get_listing(str(settings.database_path), listing.id)
+    assert updated.status == "published"
+    assert updated.vinted_item_id == "official-42"
 
 
 def test_borrar_anuncio(tmp_path) -> None:

@@ -20,15 +20,17 @@ from src.core.settings import Settings
 from src.storage import accounts_store, listings_store
 from src.ui.deps import (
     get_ai_provider,
+    get_api_client_factory,
     get_db_path,
     get_session_client_factory,
     get_settings,
     redirect_with_message,
     require_login,
 )
+from src.vinted.api_client import VintedApiClient
 from src.vinted.models import CONDITION_LABELS_ES, Listing
 from src.vinted.session_client import VintedSessionClient
-from src.worker.scheduler import publish_listing_now
+from src.worker.scheduler import publish_listing_now, publish_listing_via_api
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
@@ -195,7 +197,8 @@ async def publish_listing_route(
     listing_id: int,
     db_path: str = Depends(get_db_path),
     settings: Settings = Depends(get_settings),
-    client_factory: Callable[[str, str], VintedSessionClient] = Depends(get_session_client_factory),
+    session_client_factory: Callable[[str, str], VintedSessionClient] = Depends(get_session_client_factory),
+    api_client_factory: Callable[[Settings], VintedApiClient] = Depends(get_api_client_factory),
 ):
     listing = listings_store.get_listing(db_path, listing_id)
     if listing is None:
@@ -203,19 +206,32 @@ async def publish_listing_route(
 
     account = accounts_store.get_account(db_path, listing.account_id)
     edit_url = f"/listings/{listing_id}/edit"
-    if account is None or account.connection_mode != "session":
-        return redirect_with_message(edit_url, error="Publicar desde aquí solo funciona con cuentas de sesión")
+    if account is None:
+        return redirect_with_message(edit_url, error="Cuenta no encontrada")
     if not listing.title or not listing.photo_paths or not listing.min_price:
         return redirect_with_message(edit_url, error="Completa título, fotos y precio mínimo antes de publicar")
-    cookie = accounts_store.get_account_session_cookie(db_path, account.id)
-    if not cookie:
-        return redirect_with_message(edit_url, error="La cuenta no tiene una sesión guardada")
 
-    client = client_factory(settings.vinted_domain, cookie)
-    try:
-        blocked = await publish_listing_now(db_path, account, listing, client, settings)
-    finally:
-        await client.aclose()
+    if account.connection_mode == "session":
+        cookie = accounts_store.get_account_session_cookie(db_path, account.id)
+        if not cookie:
+            return redirect_with_message(edit_url, error="La cuenta no tiene una sesión guardada")
+        client = session_client_factory(settings.vinted_domain, cookie)
+        try:
+            blocked = await publish_listing_now(db_path, account, listing, client, settings)
+        finally:
+            await client.aclose()
+    elif account.connection_mode == "api":
+        if not settings.vinted_api_client_id or not settings.vinted_api_client_secret:
+            return redirect_with_message(
+                edit_url, error="Faltan las credenciales de la API oficial en Ajustes"
+            )
+        api_client = api_client_factory(settings)
+        try:
+            blocked = await publish_listing_via_api(db_path, account, listing, api_client, settings)
+        finally:
+            await api_client.aclose()
+    else:
+        return redirect_with_message(edit_url, error=f"Vía de conexión desconocida: {account.connection_mode}")
 
     if blocked is not None:
         return redirect_with_message(edit_url, error=f"Bloqueado por el ritmo seguro: {blocked.reason}")
