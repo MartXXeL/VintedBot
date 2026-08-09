@@ -120,4 +120,5 @@ estado.
 - [x] Panel web: anuncios (generar con IA, editar, publicar)
 - [x] Panel web: negociación (aprobar/descartar ofertas)
 - [x] Panel web: ajustes y seguimiento DAC7
+- [x] Punto de entrada (`python -m src.main`) — probado de extremo a extremo
 - [ ] Documentación final (arquitectura con diagramas, variables de entorno, seguridad, avisos)
