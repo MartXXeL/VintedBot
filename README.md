@@ -95,7 +95,7 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 - [x] Seguimiento fiscal DAC7 por cuenta + tests
 - [x] Planes de precio (por cuenta conectada + volumen) + tests
 - [x] Proveedores de IA (Anthropic + simulado) para visión, anuncios y respuestas
-- [ ] Clientes de Vinted: API oficial + sesión de respaldo
+- [x] Clientes de Vinted: API oficial + sesión de respaldo
 - [ ] Persistencia: cuentas, anuncios, ofertas, ventas, registro de acciones
 - [ ] Trabajador en segundo plano al ritmo seguro
 - [ ] Panel web: login, vista general, anuncios, negociación, ajustes, DAC7
