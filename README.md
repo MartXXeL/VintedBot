@@ -96,7 +96,7 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 - [x] Planes de precio (por cuenta conectada + volumen) + tests
 - [x] Proveedores de IA (Anthropic + simulado) para visión, anuncios y respuestas
 - [x] Clientes de Vinted: API oficial + sesión de respaldo
-- [ ] Persistencia: cuentas, anuncios, ofertas, ventas, registro de acciones
+- [x] Persistencia: cuentas, anuncios, ofertas, ventas, registro de acciones
 - [ ] Trabajador en segundo plano al ritmo seguro
 - [ ] Panel web: login, vista general, anuncios, negociación, ajustes, DAC7
 - [ ] Integración continua (tests + linter en cada push)

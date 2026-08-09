@@ -1,19 +1,7 @@
-import os
-
-import pytest
-
 from src.storage import crypto
 
-
-@pytest.fixture(autouse=True)
-def _clave_de_prueba(tmp_path, monkeypatch):
-    """Cada test usa su propia clave y su propio `.env`, sin tocar el real."""
-    monkeypatch.setattr(crypto, "_ENV_PATH", tmp_path / ".env")
-    monkeypatch.delenv("DB_ENCRYPTION_KEY", raising=False)
-    crypto.reset_fernet_cache()
-    yield
-    crypto.reset_fernet_cache()
-    os.environ.pop("DB_ENCRYPTION_KEY", None)
+# El aislamiento de la clave (propio .env de prueba en tmp_path) lo da la
+# fixture autouse `_clave_de_cifrado_aislada` de tests/unit/conftest.py.
 
 
 def test_encrypt_decrypt_roundtrip() -> None:
