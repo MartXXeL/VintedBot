@@ -88,7 +88,7 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 ## TODO
 
 - [x] Estructura del proyecto y dependencias
-- [ ] Utilidades base (configuración, cifrado en reposo, logger)
+- [x] Utilidades base (configuración, cifrado en reposo, logger)
 - [ ] Modelos de datos de Vinted (cuenta, anuncio, oferta)
 - [ ] Motor de negociación puro (aceptar/contraofertar/rechazar) + tests
 - [ ] Limitador de ritmo (cadencia segura, tope diario, pausa nocturna) + tests
