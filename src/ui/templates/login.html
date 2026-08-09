@@ -4,11 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Entrar · VintedBot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="login-page">
   <div class="panel login-card">
-    <h1>VintedBot</h1>
+    <h1>Vinted<span class="text-money">Bot</span></h1>
     <p class="meta">Panel de control</p>
     {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
     <form method="post" action="/login">

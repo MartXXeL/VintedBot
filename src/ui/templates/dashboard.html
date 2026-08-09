@@ -29,7 +29,7 @@
           {% elif row.account.status == "error" %}<span class="badge danger">Error</span>
           {% else %}<span class="badge muted">Desconectada</span>{% endif %}
         </td>
-        <td>
+        <td class="num">
           {{ row.actions_today }}/{{ row.max_actions }}
           {% if not row.rate_ok %}<br><span class="meta text-danger">{{ row.rate_reason }}</span>{% endif %}
         </td>

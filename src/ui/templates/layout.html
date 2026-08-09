@@ -4,11 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}VintedBot{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <div class="topbar">
-    <div class="brand"><span class="dot"></span> VintedBot</div>
+    <div class="brand">Vinted<span class="text-money">Bot</span><span class="tag">panel</span></div>
     <nav class="nav">
       <a href="/" class="{{ 'is-active' if active == 'dashboard' else '' }}">Cuentas</a>
       <a href="/listings" class="{{ 'is-active' if active == 'listings' else '' }}">Anuncios</a>
