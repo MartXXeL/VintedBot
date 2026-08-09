@@ -1,0 +1,33 @@
+# Dependencias de VintedBot
+
+# Panel web + API
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+jinja2>=3.1.0
+python-multipart>=0.0.12
+
+# Configuración y modelos/validación
+python-dotenv>=1.0.0
+pydantic>=2.10.0
+
+# Cliente HTTP async (API oficial de Vinted + sesión de respaldo)
+httpx>=0.27.0
+
+# Cifrado en reposo de credenciales, sesiones y precio mínimo
+cryptography>=42.0
+
+# IA con visión: extracción de campos + redacción de anuncios y respuestas
+# (Claude Sonnet 5 vía SDK oficial de Anthropic; sin ANTHROPIC_API_KEY la app
+# usa un proveedor simulado para poder arrancar y probarse sin credenciales)
+anthropic>=0.40.0
+
+# Preprocesado de fotos (redimensionar/comprimir antes de mandarlas a la IA)
+Pillow>=10.4.0
+
+# Cobro por suscripción (checkout + webhooks)
+stripe>=11.0.0
+
+# Desarrollo
+ruff>=0.9.0
+pytest>=8.3.0
+pytest-asyncio>=0.24.0

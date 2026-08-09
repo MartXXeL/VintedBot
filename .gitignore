@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Entorno
+.env
+.envrc
+.direnv/
+
+# IDEs
+.vscode/
+.idea/
+.claude/
+
+# Datos en tiempo de ejecución (BD, fotos subidas, sesiones de Vinted)
+data/
+
+# Sesiones/cookies: credenciales vivas, nunca al repositorio
+*.session
+cookies.txt
+session_*.json
+
+# Logs y artefactos manuales
+*.log
