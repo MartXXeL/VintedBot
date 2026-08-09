@@ -18,7 +18,7 @@ from src.ai.listing_writer import build_listing_draft
 from src.ai.providers import AIProvider
 from src.core.logger import logger
 from src.core.settings import Settings
-from src.storage import accounts_store, listings_store
+from src.storage import accounts_store, listings_store, sales_store
 from src.ui.deps import (
     get_ai_provider,
     get_api_client_factory,
@@ -29,7 +29,7 @@ from src.ui.deps import (
     require_login,
 )
 from src.vinted.api_client import VintedApiClient
-from src.vinted.models import CONDITION_LABELS_ES, Listing
+from src.vinted.models import CONDITION_LABELS_ES, Listing, Sale
 from src.vinted.session_client import VintedSessionClient
 from src.worker.scheduler import publish_listing_now, publish_listing_via_api
 
@@ -251,6 +251,32 @@ def _publish_failure_redirect(edit_url: str, error: Exception):
     """
     logger.warning(f"Fallo al publicar en Vinted: {error}")
     return redirect_with_message(edit_url, error=f"Vinted rechazó la publicación: {error}")
+
+
+@router.post("/listings/{listing_id}/sold")
+def mark_sold_route(
+    listing_id: int, sale_amount: float = Form(...), db_path: str = Depends(get_db_path)
+):
+    """Marca un anuncio publicado como vendido y registra la venta.
+
+    Sin esto, `src/compliance/dac7.py` nunca tendría datos reales que
+    evaluar: es el único sitio del panel que crea una fila en `sales`.
+    """
+    listing = listings_store.get_listing(db_path, listing_id)
+    if listing is None:
+        return redirect_with_message("/listings", error="Anuncio no encontrado")
+    if listing.status != "published":
+        return redirect_with_message(
+            f"/listings/{listing_id}/edit", error="Solo se puede marcar como vendido un anuncio publicado"
+        )
+    if sale_amount <= 0:
+        return redirect_with_message(f"/listings/{listing_id}/edit", error="El importe de venta debe ser mayor que cero")
+
+    listings_store.mark_sold(db_path, listing_id)
+    sales_store.record_sale(
+        db_path, Sale(account_id=listing.account_id, listing_id=listing_id, sale_amount=sale_amount)
+    )
+    return redirect_with_message(f"/listings/{listing_id}/edit", ok="Anuncio marcado como vendido")
 
 
 @router.post("/listings/{listing_id}/delete")

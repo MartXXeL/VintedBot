@@ -5,7 +5,7 @@ from PIL import Image
 
 from src.core.security import hash_password
 from src.core.settings import Settings
-from src.storage import accounts_store, listings_store
+from src.storage import accounts_store, listings_store, sales_store
 from src.ui.app import create_app
 from src.vinted.errors import VintedApiError
 from src.vinted.models import Listing, VintedAccount
@@ -324,6 +324,58 @@ def test_publicar_cuenta_api_con_credenciales_publica_de_verdad(tmp_path) -> Non
     updated = listings_store.get_listing(str(settings.database_path), listing.id)
     assert updated.status == "published"
     assert updated.vinted_item_id == "official-42"
+
+
+def test_marcar_como_vendido_registra_la_venta(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    listing = listings_store.create_listing(
+        str(settings.database_path),
+        Listing(account_id=account.id, price=30.0, status="published", vinted_item_id="item-1"),
+    )
+
+    response = client.post(f"/listings/{listing.id}/sold", data={"sale_amount": "28"}, follow_redirects=False)
+
+    assert "ok=" in response.headers["location"]
+    updated = listings_store.get_listing(str(settings.database_path), listing.id)
+    assert updated.status == "sold"
+    sales = sales_store.list_sales(str(settings.database_path), account_id=account.id)
+    assert len(sales) == 1
+    assert sales[0].sale_amount == 28.0
+    assert sales[0].listing_id == listing.id
+
+
+def test_marcar_como_vendido_un_borrador_da_error(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    listing = listings_store.create_listing(
+        str(settings.database_path), Listing(account_id=account.id, status="draft")
+    )
+
+    response = client.post(f"/listings/{listing.id}/sold", data={"sale_amount": "10"}, follow_redirects=False)
+
+    assert "error=" in response.headers["location"]
+    assert listings_store.get_listing(str(settings.database_path), listing.id).status == "draft"
+    assert sales_store.list_sales(str(settings.database_path)) == []
+
+
+def test_marcar_como_vendido_importe_invalido_da_error(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    listing = listings_store.create_listing(
+        str(settings.database_path), Listing(account_id=account.id, status="published")
+    )
+
+    response = client.post(f"/listings/{listing.id}/sold", data={"sale_amount": "0"}, follow_redirects=False)
+
+    assert "error=" in response.headers["location"]
+    assert listings_store.get_listing(str(settings.database_path), listing.id).status == "published"
+
+
+def test_marcar_como_vendido_anuncio_inexistente_da_error(tmp_path) -> None:
+    client, _settings = _make_client(tmp_path)
+    response = client.post("/listings/999/sold", data={"sale_amount": "10"}, follow_redirects=False)
+    assert "error=" in response.headers["location"]
 
 
 def test_borrar_anuncio(tmp_path) -> None:

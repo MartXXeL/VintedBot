@@ -331,6 +331,10 @@ antelación cuándo una cuenta se acerca o ya los supera —
 `src/compliance/dac7.py` es lógica pura, no presenta nada ante Hacienda ni
 sustituye asesoría fiscal.
 
+Los datos vienen de verdad: cuando un anuncio publicado se vende, el botón
+**Marcar como vendido** (en la ficha del anuncio) registra el importe real
+en `sales` — sin eso, DAC7 nunca tendría nada que evaluar.
+
 ## Planes de precio
 
 `src/billing/plans.py` modela el cobro **por cuenta conectada y volumen de
@@ -408,12 +412,14 @@ decides y asumes esos riesgos.
       DAC7) — encontró y corrigió un fallo real: un rechazo de Vinted al
       publicar (sesión caducada) tumbaba la petición con un 500 en vez de
       avisar con un mensaje
+- [x] Marcar un anuncio como vendido y registrar la venta (sin esto DAC7
+      nunca tenía datos reales que evaluar) — probado en real de punta a
+      punta: conectar cuenta → generar → publicar → vender → aparece en DAC7
 
 ### Ideas para más adelante (fuera del alcance de esta primera versión)
 
 - [ ] Verificar los endpoints de ofertas de la vía de sesión contra tráfico
       real — necesita una cuenta de Vinted real conectada, no se puede
       comprobar solo con tests
-- [ ] Recordar/mostrar el histórico de ventas por anuncio, no solo el total DAC7
 - [ ] Modelo de clientes/suscripciones propio para que el webhook de Stripe
       actualice algo persistente, no solo lo registre
