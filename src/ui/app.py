@@ -54,6 +54,22 @@ def _bootstrap_dashboard_password(settings: Settings) -> None:
     print("=" * 60 + "\n")
 
 
+def _warn_if_exposed_without_https(settings: Settings) -> None:
+    """La cookie de sesión solo lleva `Secure` si `DASHBOARD_FORCE_HTTPS=true`.
+
+    En loopback (host por defecto) da igual: no hay red de por medio que
+    pueda interceptarla. Fuera de loopback, sin HTTPS delante, la cookie
+    viaja en claro — un aviso alto y claro es mejor que confiar en que se
+    lea la letra pequeña del README.
+    """
+    if settings.dashboard_host not in ("127.0.0.1", "localhost", "::1") and not settings.dashboard_force_https:
+        logger.warning(
+            f"DASHBOARD_HOST={settings.dashboard_host!r} no es loopback y DASHBOARD_FORCE_HTTPS "
+            "está desactivado: la cookie de sesión viajaría sin cifrar. Pon un proxy con HTTPS "
+            "delante y activa DASHBOARD_FORCE_HTTPS, o vuelve a 127.0.0.1."
+        )
+
+
 def create_app(
     settings: Settings,
     ai_provider: AIProvider | None = None,
@@ -64,6 +80,7 @@ def create_app(
 ) -> FastAPI:
     init_db(settings.database_path)
     _bootstrap_dashboard_password(settings)
+    _warn_if_exposed_without_https(settings)
 
     ai_provider = ai_provider or get_ai_provider(
         settings.resolve_ai_provider(), settings.anthropic_api_key, settings.anthropic_model
@@ -96,12 +113,10 @@ def create_app(
 
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
-    # Fotos subidas para generar anuncios (`src/ui/routes_listings.py`): fuera de
-    # `static/` porque son datos del usuario, no del código — StaticFiles exige
-    # que la carpeta ya exista al montar, así que se crea aquí si falta.
-    photos_dir = Path(settings.database_path).parent / "photos"
-    photos_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/media/photos", StaticFiles(directory=str(photos_dir)), name="photos")
+    # Las fotos subidas para generar anuncios NO se montan como `StaticFiles`
+    # (eso serviría cualquier archivo sin pasar por el login): se sirven desde
+    # `GET /listings/{id}/photos/{i}` en `src/ui/routes_listings.py`, que sí
+    # está detrás de `Depends(require_login)` como el resto del panel.
 
     @app.exception_handler(NotAuthenticatedError)
     async def _redirect_to_login(_request: Request, _exc: NotAuthenticatedError) -> RedirectResponse:

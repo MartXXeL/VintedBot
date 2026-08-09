@@ -11,7 +11,8 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 
 from src.ai.listing_writer import build_listing_draft
 from src.ai.providers import AIProvider
@@ -120,20 +121,28 @@ async def generate_listing(
     return redirect_with_message(f"/listings/{listing.id}/edit", ok="Borrador generado, revísalo antes de publicar")
 
 
+@router.get("/listings/{listing_id}/photos/{index}")
+def get_listing_photo(listing_id: int, index: int, db_path: str = Depends(get_db_path)):
+    """Sirve una foto ya subida — detrás de login, a diferencia de un `StaticFiles` suelto.
+
+    Las fotos de un anuncio pueden incluir detalles del vendedor (matrículas,
+    caras, direcciones de fondo); no tiene sentido que naveguen sin sesión
+    cuando el resto del panel entero exige login.
+    """
+    listing = listings_store.get_listing(db_path, listing_id)
+    if listing is None or not (0 <= index < len(listing.photo_paths)):
+        raise HTTPException(status_code=404)
+    return FileResponse(listing.photo_paths[index], media_type="image/jpeg")
+
+
 @router.get("/listings/{listing_id}/edit")
-def edit_listing_form(
-    request: Request,
-    listing_id: int,
-    db_path: str = Depends(get_db_path),
-    settings: Settings = Depends(get_settings),
-):
+def edit_listing_form(request: Request, listing_id: int, db_path: str = Depends(get_db_path)):
     templates = request.app.state.templates
     listing = listings_store.get_listing(db_path, listing_id)
     if listing is None:
         return redirect_with_message("/listings", error="Anuncio no encontrado")
 
-    photos_dir = _photos_dir(settings)
-    photo_urls = [f"/media/photos/{Path(p).relative_to(photos_dir).as_posix()}" for p in listing.photo_paths]
+    photo_urls = [f"/listings/{listing.id}/photos/{i}" for i in range(len(listing.photo_paths))]
 
     return templates.TemplateResponse(
         request,

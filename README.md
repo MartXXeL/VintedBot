@@ -303,6 +303,10 @@ estado.
   (`NegotiationDecision.to_ai_context()`), sin precio mínimo ni proporción.
 - **Sin credenciales en el repositorio**: `.env` y `data/` (base de datos,
   fotos subidas) están en `.gitignore`.
+- **Fotos detrás de login**: las fotos de un anuncio se sirven desde
+  `GET /listings/{id}/photos/{i}` (protegida como el resto del panel), no
+  desde una carpeta estática suelta — así una foto no queda accesible sin
+  sesión aunque alguien adivine o filtre su URL.
 - **Sin anti-detección**: la vía de sesión hace peticiones HTTP normales
   con la cookie del propio usuario — nada de proxies, huellas de navegador
   falsas ni rotación de user-agent. La protección de la cuenta es
@@ -310,7 +314,9 @@ estado.
   nocturna, igual o más estrictos que lo documentado como seguro.
 - Si expones el panel fuera de tu red local, añade HTTPS real, firewall y
   preferiblemente VPN — el login y el cifrado protegen el panel, no el
-  servidor donde corre.
+  servidor donde corre. Si `DASHBOARD_HOST` deja de ser loopback sin
+  `DASHBOARD_FORCE_HTTPS=true`, el arranque avisa por consola de que la
+  cookie de sesión viajaría sin cifrar.
 
 ## Cumplimiento fiscal (DAC7)
 

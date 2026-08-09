@@ -5,6 +5,8 @@ simulada (por defecto, sin `ANTHROPIC_API_KEY`) y una contraseña conocida
 para poder probar el login de verdad.
 """
 
+import logging
+
 from fastapi.testclient import TestClient
 
 from src.core.security import hash_password
@@ -151,3 +153,47 @@ def test_delete_account_desde_el_panel(tmp_path) -> None:
     client.post(f"/accounts/{account.id}/delete")
 
     assert accounts_store.get_account(str(settings.database_path), account.id) is None
+
+
+# --------------------------------------------------------------------------- #
+#  Aviso de exposición sin HTTPS (DASHBOARD_HOST no-loopback + sin forzar HTTPS)
+# --------------------------------------------------------------------------- #
+
+
+def test_avisa_si_se_expone_sin_https(tmp_path, caplog) -> None:
+    settings = Settings(
+        database_path=tmp_path / "test.db",
+        dashboard_password_hash=hash_password(TEST_PASSWORD),
+        dashboard_host="0.0.0.0",
+        dashboard_force_https=False,
+    )
+    with caplog.at_level(logging.WARNING, logger="VintedBot"):
+        create_app(settings, start_worker=False)
+
+    assert any("no es loopback" in record.message for record in caplog.records)
+
+
+def test_no_avisa_en_loopback(tmp_path, caplog) -> None:
+    settings = Settings(
+        database_path=tmp_path / "test.db",
+        dashboard_password_hash=hash_password(TEST_PASSWORD),
+        dashboard_host="127.0.0.1",
+        dashboard_force_https=False,
+    )
+    with caplog.at_level(logging.WARNING, logger="VintedBot"):
+        create_app(settings, start_worker=False)
+
+    assert not any("no es loopback" in record.message for record in caplog.records)
+
+
+def test_no_avisa_si_ya_se_fuerza_https(tmp_path, caplog) -> None:
+    settings = Settings(
+        database_path=tmp_path / "test.db",
+        dashboard_password_hash=hash_password(TEST_PASSWORD),
+        dashboard_host="0.0.0.0",
+        dashboard_force_https=True,
+    )
+    with caplog.at_level(logging.WARNING, logger="VintedBot"):
+        create_app(settings, start_worker=False)
+
+    assert not any("no es loopback" in record.message for record in caplog.records)

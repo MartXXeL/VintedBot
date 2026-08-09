@@ -130,14 +130,70 @@ def test_editar_anuncio_guarda_cambios(tmp_path) -> None:
 def test_pagina_de_edicion_muestra_las_fotos(tmp_path) -> None:
     client, settings = _make_client(tmp_path)
     account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
     listing = listings_store.create_listing(
-        str(settings.database_path), Listing(account_id=account.id, title="Con fotos")
+        str(settings.database_path),
+        Listing(account_id=account.id, title="Con fotos", photo_paths=[str(photo)]),
     )
 
     response = client.get(f"/listings/{listing.id}/edit")
 
     assert response.status_code == 200
     assert "Con fotos" in response.text
+    assert f"/listings/{listing.id}/photos/0" in response.text
+
+
+def test_foto_del_anuncio_exige_sesion(tmp_path) -> None:
+    """La foto vive detrás de login, a diferencia de un StaticFiles suelto."""
+    client, settings = _make_client(tmp_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-jpeg-falso")
+    listing = listings_store.create_listing(
+        str(settings.database_path),
+        Listing(account_id=account.id, photo_paths=[str(photo)]),
+    )
+
+    client.post("/logout")
+    response = client.get(f"/listings/{listing.id}/photos/0", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+
+
+def test_foto_del_anuncio_autenticada_se_sirve(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(b"\xff\xd8\xff-contenido-jpeg-falso")
+    listing = listings_store.create_listing(
+        str(settings.database_path),
+        Listing(account_id=account.id, photo_paths=[str(photo)]),
+    )
+
+    response = client.get(f"/listings/{listing.id}/photos/0")
+
+    assert response.status_code == 200
+    assert response.content == b"\xff\xd8\xff-contenido-jpeg-falso"
+
+
+def test_foto_indice_fuera_de_rango_da_404(tmp_path) -> None:
+    client, settings = _make_client(tmp_path)
+    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    listing = listings_store.create_listing(
+        str(settings.database_path), Listing(account_id=account.id, photo_paths=[])
+    )
+
+    response = client.get(f"/listings/{listing.id}/photos/0")
+
+    assert response.status_code == 404
+
+
+def test_foto_de_anuncio_inexistente_da_404(tmp_path) -> None:
+    client, _settings = _make_client(tmp_path)
+    response = client.get("/listings/999/photos/0")
+    assert response.status_code == 404
 
 
 def test_publicar_sin_min_price_da_error(tmp_path) -> None:
