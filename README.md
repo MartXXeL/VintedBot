@@ -91,7 +91,7 @@ igual. Detalle completo más abajo a medida que se implementa cada pieza.)*
 - [x] Utilidades base (configuración, cifrado en reposo, logger)
 - [x] Modelos de datos de Vinted (cuenta, anuncio, oferta)
 - [x] Motor de negociación puro (aceptar/contraofertar/rechazar) + tests
-- [ ] Limitador de ritmo (cadencia segura, tope diario, pausa nocturna) + tests
+- [x] Limitador de ritmo (cadencia segura, tope diario, pausa nocturna) + tests
 - [ ] Seguimiento fiscal DAC7 por cuenta + tests
 - [ ] Planes de precio (por cuenta conectada + volumen) + tests
 - [ ] Proveedores de IA (Anthropic + simulado) para visión, anuncios y respuestas
