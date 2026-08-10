@@ -11,6 +11,19 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+    is_active INTEGER NOT NULL DEFAULT 1,
+    plan_id TEXT,
+    subscription_status TEXT NOT NULL DEFAULT 'none' CHECK (
+        subscription_status IN ('none', 'active', 'canceled', 'past_due')
+    ),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     label TEXT NOT NULL,
@@ -24,6 +37,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     ),
     auto_publish INTEGER NOT NULL DEFAULT 0,
     auto_reply_offers INTEGER NOT NULL DEFAULT 0,
+    owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -105,11 +119,25 @@ def get_connection(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    """Añade una columna a una tabla ya existente si todavía no la tiene.
+
+    Sin un framework de migraciones de verdad (no hace falta para el tamaño
+    de este proyecto), esto es lo mínimo para que una base de datos creada
+    con un esquema antiguo (como cualquiera de antes de que existieran los
+    usuarios) siga funcionando sin borrarla y empezar de cero.
+    """
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
 def init_db(db_path: str | Path) -> None:
-    """Crea las tablas que falten. Segura de llamar en cada arranque."""
+    """Crea las tablas que falten (y migra las columnas nuevas). Segura de llamar en cada arranque."""
     conn = get_connection(db_path)
     try:
         conn.executescript(_SCHEMA)
+        _ensure_column(conn, "accounts", "owner_user_id", "owner_user_id INTEGER REFERENCES users(id)")
         conn.commit()
     finally:
         conn.close()

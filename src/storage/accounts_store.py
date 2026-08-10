@@ -24,17 +24,23 @@ def _row_to_account(row: sqlite3.Row) -> VintedAccount:
         status=row["status"],
         auto_publish=bool(row["auto_publish"]),
         auto_reply_offers=bool(row["auto_reply_offers"]),
+        owner_user_id=row["owner_user_id"],
         created_at=datetime.fromisoformat(row["created_at"]),
     )
 
 
-def create_account(db_path: str, account: VintedAccount, session_cookie: str | None = None) -> VintedAccount:
+def create_account(
+    db_path: str,
+    account: VintedAccount,
+    session_cookie: str | None = None,
+    owner_user_id: int | None = None,
+) -> VintedAccount:
     with connect(db_path) as conn:
         cursor = conn.execute(
             """INSERT INTO accounts
                (label, connection_mode, vinted_user_id, session_cookie_encrypted,
-                status, auto_publish, auto_reply_offers)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                status, auto_publish, auto_reply_offers, owner_user_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 account.label,
                 account.connection_mode,
@@ -43,6 +49,7 @@ def create_account(db_path: str, account: VintedAccount, session_cookie: str | N
                 account.status,
                 int(account.auto_publish),
                 int(account.auto_reply_offers),
+                owner_user_id if owner_user_id is not None else account.owner_user_id,
             ),
         )
         account_id = cursor.lastrowid
@@ -56,9 +63,17 @@ def get_account(db_path: str, account_id: int) -> VintedAccount | None:
         return _row_to_account(row) if row else None
 
 
-def list_accounts(db_path: str) -> list[VintedAccount]:
+def list_accounts(db_path: str, owner_user_id: int | None = None) -> list[VintedAccount]:
+    """Sin `owner_user_id`, devuelve TODAS las cuentas (uso admin); con él, solo las suyas."""
+    query = "SELECT * FROM accounts"
+    params: list[object] = []
+    if owner_user_id is not None:
+        query += " WHERE owner_user_id = ?"
+        params.append(owner_user_id)
+    query += " ORDER BY created_at"
+
     with connect(db_path) as conn:
-        rows = conn.execute("SELECT * FROM accounts ORDER BY created_at").fetchall()
+        rows = conn.execute(query, params).fetchall()
         return [_row_to_account(row) for row in rows]
 
 

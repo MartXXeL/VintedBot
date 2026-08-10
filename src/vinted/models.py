@@ -39,6 +39,10 @@ class VintedAccount(BaseModel):
     status: AccountStatus = "disconnected"
     auto_publish: bool = False
     auto_reply_offers: bool = False
+    # A quién pertenece dentro del panel — None solo en cuentas de antes de
+    # que existieran los usuarios (una migración las deja sin dueño; un
+    # admin las ve igualmente, un member no).
+    owner_user_id: int | None = None
     created_at: datetime = Field(default_factory=datetime.now)
 
 

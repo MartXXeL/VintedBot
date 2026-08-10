@@ -1,10 +1,11 @@
-"""Hash de la contraseña del panel (PBKDF2-HMAC-SHA256, solo librería estándar).
+"""Hash de las contraseñas de los usuarios del panel (PBKDF2-HMAC-SHA256, solo librería estándar).
 
 No es cifrado reversible como `src/storage/crypto.py` (eso protege datos que
 hay que poder volver a leer, como el precio mínimo o la sesión de Vinted):
 una contraseña solo hace falta poder VERIFICARLA, nunca recuperarla, así que
-se guarda un hash de un solo sentido. Así, aunque alguien copie el `.env`, no
-obtiene la contraseña en claro del panel.
+se guarda un hash de un solo sentido en `users.password_hash`
+(`src/storage/users_store.py`). Así, aunque alguien copie la base de datos,
+no obtiene ninguna contraseña en claro.
 """
 
 import base64
@@ -18,7 +19,7 @@ _ITERATIONS = 260_000
 
 def hash_password(password: str) -> str:
     """Devuelve un hash autocontenido (algoritmo + iteraciones + sal + hash)
-    listo para guardar en el `.env` como `DASHBOARD_PASSWORD_HASH`."""
+    listo para guardar en `users.password_hash`."""
     salt = os.urandom(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _ITERATIONS)
     return f"{_ALGO}${_ITERATIONS}${base64.b64encode(salt).decode()}${base64.b64encode(digest).decode()}"

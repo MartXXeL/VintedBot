@@ -18,13 +18,14 @@ from fastapi.templating import Jinja2Templates
 
 from src.ai.providers import AIProvider, get_ai_provider
 from src.billing.stripe_client import StripeClient
-from src.core.env_file import update_env_file
 from src.core.logger import logger
 from src.core.security import generate_random_password, hash_password
 from src.core.settings import Settings
+from src.storage import users_store
 from src.storage.db import init_db
-from src.ui.deps import NotAuthenticatedError
+from src.ui.deps import NotAuthenticatedError, NotAuthorizedError
 from src.ui.login_guard import LoginGuard
+from src.ui.routes_admin import router as admin_router
 from src.ui.routes_auth import router as auth_router
 from src.ui.routes_billing import router as billing_router
 from src.ui.routes_billing import webhook_router as billing_webhook_router
@@ -44,18 +45,22 @@ _TEMPLATES_DIR = _UI_DIR / "templates"
 _STATIC_DIR = _UI_DIR / "static"
 
 
-def _bootstrap_dashboard_password(settings: Settings) -> None:
-    """Primer arranque sin contraseña configurada: genera una y la muestra UNA vez."""
-    if settings.dashboard_password_hash:
+def _bootstrap_admin_user(settings: Settings) -> None:
+    """Primer arranque sin ningún usuario: crea el admin y muestra su contraseña UNA vez.
+
+    A partir de ahí, quien gestiona el resto de cuentas del panel es este
+    admin desde `/admin` (`src/ui/routes_admin.py`) — no hace falta tocar
+    variables de entorno para dar de alta a nadie más.
+    """
+    db_path = str(settings.database_path)
+    if users_store.count_users(db_path) > 0:
         return
     password = generate_random_password()
-    settings.dashboard_password_hash = hash_password(password)
-    try:
-        update_env_file(settings.env_path, {"DASHBOARD_PASSWORD_HASH": settings.dashboard_password_hash})
-    except OSError:
-        logger.warning("No se pudo guardar la contraseña generada en .env (no persistirá al reiniciar).")
+    users_store.create_user(db_path, settings.admin_bootstrap_email, hash_password(password), role="admin")
     print("\n" + "=" * 60)
-    print(f"  Contraseña del panel (guárdala, no se vuelve a mostrar):\n\n    {password}\n")
+    print("  Usuario admin creado (guarda estos datos, no se vuelven a mostrar):\n")
+    print(f"    Email:       {settings.admin_bootstrap_email}")
+    print(f"    Contraseña:  {password}\n")
     print("=" * 60 + "\n")
 
 
@@ -86,7 +91,7 @@ def create_app(
     start_worker: bool = True,
 ) -> FastAPI:
     init_db(settings.database_path)
-    _bootstrap_dashboard_password(settings)
+    _bootstrap_admin_user(settings)
     _warn_if_exposed_without_https(settings)
 
     ai_provider = ai_provider or get_ai_provider(
@@ -139,6 +144,12 @@ def create_app(
     async def _redirect_to_login(_request: Request, _exc: NotAuthenticatedError) -> RedirectResponse:
         return RedirectResponse("/login", status_code=303)
 
+    @app.exception_handler(NotAuthorizedError)
+    async def _forbidden(_request: Request, _exc: NotAuthorizedError) -> RedirectResponse:
+        # Sesión válida pero sin rol admin (p. ej. un member entrando a /admin
+        # o /settings a mano): a "/" con un aviso, no un 403 en blanco.
+        return RedirectResponse("/?error=No+tienes+permiso+para+ver+esa+p%C3%A1gina", status_code=303)
+
     app.include_router(auth_router)
     app.include_router(dashboard_router)
     app.include_router(listings_router)
@@ -148,5 +159,6 @@ def create_app(
     app.include_router(billing_router)
     app.include_router(billing_webhook_router)
     app.include_router(tutorial_router)
+    app.include_router(admin_router)
 
     return app

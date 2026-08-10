@@ -9,6 +9,7 @@ python-multipart>=0.0.12
 # Configuración y modelos/validación
 python-dotenv>=1.0.0
 pydantic>=2.10.0
+email-validator>=2.2.0
 
 # Cliente HTTP async (API oficial de Vinted + sesión de respaldo)
 httpx>=0.27.0

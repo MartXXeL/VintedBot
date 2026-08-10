@@ -1,9 +1,9 @@
-"""Sesiones del panel: un token opaco por login, guardado en memoria.
+"""Sesiones del panel: un token opaco por login, atado a un usuario, en memoria.
 
-Nada de JWT ni de cookies autofirmadas: el panel es de un solo operador y
-corre en local, así que un diccionario en memoria (token aleatorio -> caduca
-en) es toda la complejidad que hace falta. Reiniciar el proceso cierra todas
-las sesiones, que es justo lo que se espera de un panel así.
+Nada de JWT ni de cookies autofirmadas: un diccionario en memoria (token
+aleatorio -> a quién pertenece y cuándo caduca) es toda la complejidad que
+hace falta para un panel con pocos usuarios. Reiniciar el proceso cierra
+todas las sesiones, que es justo lo que se espera de un panel así.
 """
 
 import secrets
@@ -13,26 +13,36 @@ from datetime import datetime, timedelta
 _DEFAULT_TTL = timedelta(hours=12)
 
 
+@dataclass(frozen=True)
+class _SessionRecord:
+    user_id: int
+    expires_at: datetime
+
+
 @dataclass
 class SessionStore:
     ttl: timedelta = _DEFAULT_TTL
-    _sessions: dict[str, datetime] = field(default_factory=dict)
+    _sessions: dict[str, _SessionRecord] = field(default_factory=dict)
 
-    def create(self) -> str:
+    def create(self, user_id: int) -> str:
         token = secrets.token_urlsafe(32)
-        self._sessions[token] = datetime.now() + self.ttl
+        self._sessions[token] = _SessionRecord(user_id=user_id, expires_at=datetime.now() + self.ttl)
         return token
 
-    def is_valid(self, token: str | None) -> bool:
+    def get_user_id(self, token: str | None) -> int | None:
+        """El `user_id` de una sesión válida, o `None` si no hay sesión (o ha caducado)."""
         if not token:
-            return False
-        expires_at = self._sessions.get(token)
-        if expires_at is None:
-            return False
-        if datetime.now() > expires_at:
+            return None
+        record = self._sessions.get(token)
+        if record is None:
+            return None
+        if datetime.now() > record.expires_at:
             del self._sessions[token]
-            return False
-        return True
+            return None
+        return record.user_id
+
+    def is_valid(self, token: str | None) -> bool:
+        return self.get_user_id(token) is not None
 
     def invalidate(self, token: str | None) -> None:
         if token:

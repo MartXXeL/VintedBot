@@ -1,4 +1,5 @@
-from src.storage import accounts_store
+from src.core.security import hash_password
+from src.storage import accounts_store, users_store
 from src.storage.db import init_db
 from src.vinted.models import VintedAccount
 
@@ -88,3 +89,35 @@ def test_delete_account(tmp_path) -> None:
     accounts_store.delete_account(db_path, account.id)
 
     assert accounts_store.get_account(db_path, account.id) is None
+
+
+def test_create_account_guarda_el_propietario(tmp_path) -> None:
+    db_path = _db(tmp_path)
+    owner = users_store.create_user(db_path, "ana@example.com", hash_password("x"))
+
+    account = accounts_store.create_account(db_path, VintedAccount(label="X"), owner_user_id=owner.id)
+
+    assert account.owner_user_id == owner.id
+    assert accounts_store.get_account(db_path, account.id).owner_user_id == owner.id
+
+
+def test_list_accounts_sin_filtro_devuelve_todas(tmp_path) -> None:
+    db_path = _db(tmp_path)
+    ana = users_store.create_user(db_path, "ana@example.com", hash_password("x"))
+    bea = users_store.create_user(db_path, "bea@example.com", hash_password("x"))
+    accounts_store.create_account(db_path, VintedAccount(label="De Ana"), owner_user_id=ana.id)
+    accounts_store.create_account(db_path, VintedAccount(label="De Bea"), owner_user_id=bea.id)
+
+    assert len(accounts_store.list_accounts(db_path)) == 2
+
+
+def test_list_accounts_filtra_por_propietario(tmp_path) -> None:
+    db_path = _db(tmp_path)
+    ana = users_store.create_user(db_path, "ana@example.com", hash_password("x"))
+    bea = users_store.create_user(db_path, "bea@example.com", hash_password("x"))
+    accounts_store.create_account(db_path, VintedAccount(label="De Ana"), owner_user_id=ana.id)
+    accounts_store.create_account(db_path, VintedAccount(label="De Bea"), owner_user_id=bea.id)
+    accounts_store.create_account(db_path, VintedAccount(label="También de Ana"), owner_user_id=ana.id)
+
+    labels = {a.label for a in accounts_store.list_accounts(db_path, owner_user_id=ana.id)}
+    assert labels == {"De Ana", "También de Ana"}

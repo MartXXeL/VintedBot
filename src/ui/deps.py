@@ -9,12 +9,14 @@ por todas partes.
 from collections.abc import Callable
 from urllib.parse import urlencode
 
-from fastapi import Request
+from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse
 
 from src.ai.providers import AIProvider
 from src.billing.stripe_client import StripeClient
 from src.core.settings import Settings
+from src.core.users import User
+from src.storage import users_store
 from src.ui.login_guard import LoginGuard
 from src.ui.sessions import SessionStore
 from src.vinted.api_client import VintedApiClient
@@ -24,14 +26,48 @@ SESSION_COOKIE_NAME = "vintedbot_session"
 
 
 class NotAuthenticatedError(Exception):
-    """Sin sesión válida: el `exception_handler` de `create_app` redirige a /login."""
+    """Sin sesión válida (o sesión de un usuario desactivado): redirige a /login."""
 
 
-def require_login(request: Request) -> None:
+class NotAuthorizedError(Exception):
+    """Sesión válida pero sin permiso para la ruta (solo admin): devuelve 403."""
+
+
+def get_current_user(request: Request) -> User:
+    """El usuario de la sesión actual, o `NotAuthenticatedError` si no hay una válida.
+
+    FastAPI cachea el resultado de una dependencia por petición, así que
+    tanto `require_login` como cualquier ruta que pida el usuario para
+    filtrar sus propias cuentas comparten esta única consulta a la base de
+    datos, en vez de repetirla.
+    """
     sessions: SessionStore = request.app.state.sessions
     token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not sessions.is_valid(token):
+    user_id = sessions.get_user_id(token)
+    if user_id is None:
         raise NotAuthenticatedError()
+
+    db_path = str(request.app.state.settings.database_path)
+    user = users_store.get_user(db_path, user_id)
+    if user is None or not user.is_active:
+        raise NotAuthenticatedError()
+    return user
+
+
+def require_login(user: User = Depends(get_current_user)) -> None:
+    return None
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Como `get_current_user`, pero exige rol admin — para las rutas de gestión."""
+    if user.role != "admin":
+        raise NotAuthorizedError()
+    return user
+
+
+def owner_filter_for(user: User) -> int | None:
+    """`None` para un admin (sin filtro: ve todo), o su propio id para un member."""
+    return None if user.role == "admin" else user.id
 
 
 def get_settings(request: Request) -> Settings:

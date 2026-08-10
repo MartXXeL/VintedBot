@@ -1,13 +1,15 @@
-"""Login del panel: contraseña única (un solo operador), con bloqueo por fuerza bruta."""
+"""Login del panel: email + contraseña por usuario, con bloqueo por fuerza bruta."""
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
 from src.core.security import verify_password
 from src.core.settings import Settings
+from src.storage import users_store
 from src.ui.deps import (
     SESSION_COOKIE_NAME,
     client_ip,
+    get_db_path,
     get_login_guard,
     get_sessions,
     get_settings,
@@ -28,7 +30,9 @@ def login_form(request: Request):
 @router.post("/login")
 def login_submit(
     request: Request,
+    email: str = Form(...),
     password: str = Form(...),
+    db_path: str = Depends(get_db_path),
     settings: Settings = Depends(get_settings),
     sessions: SessionStore = Depends(get_sessions),
     login_guard: LoginGuard = Depends(get_login_guard),
@@ -37,12 +41,21 @@ def login_submit(
     if login_guard.is_locked_out(ip):
         return redirect_with_message("/login", error="Demasiados intentos fallidos, espera unos minutos")
 
-    if not verify_password(password, settings.dashboard_password_hash):
+    user = users_store.get_user_by_email(db_path, email)
+    stored_hash = users_store.get_password_hash(db_path, user.id) if user else None
+    # Se llama a `verify_password` aunque el email no exista (con un hash
+    # `None` siempre da `False`, sin lanzar nada): así no se filtra por
+    # temporización qué emails están dados de alta.
+    password_ok = verify_password(password, stored_hash)
+    if user is None or not password_ok:
         login_guard.register_failure(ip)
-        return redirect_with_message("/login", error="Contraseña incorrecta")
+        return redirect_with_message("/login", error="Email o contraseña incorrectos")
+    if not user.is_active:
+        login_guard.register_failure(ip)
+        return redirect_with_message("/login", error="Esta cuenta está desactivada, habla con tu administrador")
 
     login_guard.register_success(ip)
-    token = sessions.create()
+    token = sessions.create(user.id)
     response = RedirectResponse("/", status_code=303)
     response.set_cookie(
         SESSION_COOKIE_NAME,

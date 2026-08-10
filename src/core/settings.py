@@ -65,9 +65,10 @@ class Settings:
 
     dashboard_host: str = "127.0.0.1"
     dashboard_port: int = 8080
-    dashboard_user: str = ""
-    dashboard_password_hash: str = ""
     dashboard_force_https: bool = False
+    # Email con el que se crea el primer usuario (admin) si la tabla de
+    # usuarios está vacía al arrancar — ver `src/ui/app.py::_bootstrap_admin_user`.
+    admin_bootstrap_email: str = "martxel.asteinza@opendeusto.es"
 
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5"
@@ -100,9 +101,8 @@ def load_settings() -> Settings:
         database_path=Path(os.getenv("DATABASE_PATH", "data/vintedbot.db")),
         dashboard_host=os.getenv("DASHBOARD_HOST", "127.0.0.1"),
         dashboard_port=_env_int("DASHBOARD_PORT", 8080),
-        dashboard_user=os.getenv("DASHBOARD_USER", ""),
-        dashboard_password_hash=os.getenv("DASHBOARD_PASSWORD_HASH", ""),
         dashboard_force_https=_env_bool("DASHBOARD_FORCE_HTTPS", False),
+        admin_bootstrap_email=os.getenv("ADMIN_BOOTSTRAP_EMAIL", "martxel.asteinza@opendeusto.es"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5"),
         ai_provider=os.getenv("AI_PROVIDER", "auto"),
