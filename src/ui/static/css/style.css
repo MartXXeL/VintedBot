@@ -250,3 +250,54 @@ td.num, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums
 .text-danger { color: var(--danger); }
 .text-dim { color: var(--text-dim); }
 .mt-0 { margin-top: 0; }
+
+/* ------------------------------ sello de github ------------------------------ */
+/* El coche del perfil de GitHub, en una esquina de toda la web, en bucle       */
+/* (el redibujado lo relanza src/ui/static/js/app.js). Tamaño fijo pequeño,    */
+/* fondo propio para que se lea encima de cualquier pantalla, y siempre en el  */
+/* mismo tema oscuro del SVG (forzado en la propia plantilla), sin depender    */
+/* del modo claro/oscuro del sistema de quien lo visite.                      */
+
+.github-car-seal {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  width: 190px;
+  padding: 8px 10px 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-1);
+  text-decoration: none;
+  opacity: 0.82;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.github-car-seal:hover,
+.github-car-seal:focus-visible {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+/* Es un id, no una clase (el SVG lo trae del propio portrait.svg para poder
+   localizarlo también desde JS) — el selector tiene que apuntar al id o el
+   tamaño real (1217×409, el nativo del SVG) gana y tapa media pantalla. */
+#github-car-seal-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.github-car-seal-caption {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+@media (max-width: 640px) {
+  .github-car-seal { width: 140px; padding: 6px 8px 5px; }
+}

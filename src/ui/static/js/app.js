@@ -39,4 +39,24 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+
+  // Sello del coche de GitHub: su animación (CSS con `animation-delay` por
+  // fila, para el efecto de "se va dibujando") solo se dispara UNA vez al
+  // insertarse el elemento en la página — para que quede "todo el rato en
+  // bucle" se clona y se reemplaza a sí mismo cada pocos segundos, lo que
+  // basta para que el navegador la trate como una animación nueva y la
+  // vuelva a reproducir desde el principio. Duración real del dibujo: hasta
+  // 1.8s de retraso de la última fila + 0.9s de su propio trazo ≈ 2.7s.
+  const CAR_SEAL_LOOP_MS = 4200;
+  function loopGithubCarSeal() {
+    const svg = document.getElementById("github-car-seal-svg");
+    if (!svg || !svg.parentNode) {
+      return;
+    }
+    const clone = svg.cloneNode(true);
+    svg.parentNode.replaceChild(clone, svg);
+  }
+  if (document.getElementById("github-car-seal-svg")) {
+    setInterval(loopGithubCarSeal, CAR_SEAL_LOOP_MS);
+  }
 });

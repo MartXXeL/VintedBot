@@ -19,6 +19,7 @@
       <a href="/compliance" class="{{ 'is-active' if active == 'compliance' else '' }}">DAC7</a>
       <a href="/billing" class="{{ 'is-active' if active == 'billing' else '' }}">Suscripción</a>
       <a href="/settings" class="{{ 'is-active' if active == 'settings' else '' }}">Ajustes</a>
+      <a href="/tutorial" class="{{ 'is-active' if active == 'tutorial' else '' }}">Ayuda</a>
     </nav>
     <div class="topbar-actions">
       <form method="post" action="/logout"><button class="ghost" type="submit">Salir</button></form>
@@ -29,6 +30,7 @@
     {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
   </div>
+  {% include "_github_seal.html" %}
   <script src="/static/js/app.js"></script>
 </body>
 </html>
