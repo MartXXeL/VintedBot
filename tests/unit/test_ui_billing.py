@@ -2,10 +2,12 @@ from fastapi.testclient import TestClient
 
 from src.core.security import hash_password
 from src.core.settings import Settings
-from src.storage import accounts_store, listings_store
+from src.storage import accounts_store, listings_store, users_store
+from src.storage.db import init_db
 from src.ui.app import create_app
 from src.vinted.models import Listing, VintedAccount
 
+TEST_EMAIL = "admin@example.com"
 TEST_PASSWORD = "una-contraseña-de-prueba"
 
 
@@ -36,19 +38,16 @@ class _FakeStripeClient:
 
 
 def _make_client(tmp_path, fake_stripe_client=None, **settings_kwargs):
-    settings = Settings(
-        database_path=tmp_path / "test.db",
-        env_path=tmp_path / ".env",
-        dashboard_password_hash=hash_password(TEST_PASSWORD),
-        **settings_kwargs,
-    )
+    settings = Settings(database_path=tmp_path / "test.db", env_path=tmp_path / ".env", **settings_kwargs)
+    init_db(settings.database_path)
+    users_store.create_user(str(settings.database_path), TEST_EMAIL, hash_password(TEST_PASSWORD), role="admin")
     app = create_app(
         settings,
         start_worker=False,
         stripe_client_factory=(lambda s: fake_stripe_client) if fake_stripe_client else None,
     )
     client = TestClient(app)
-    client.post("/login", data={"password": TEST_PASSWORD})
+    client.post("/login", data={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     return client, settings
 
 
@@ -64,7 +63,12 @@ def test_ver_suscripcion_sin_stripe_configurado(tmp_path) -> None:
 
 def test_ver_suscripcion_muestra_el_plan_recomendado(tmp_path) -> None:
     client, settings = _make_client(tmp_path)
-    account = accounts_store.create_account(str(settings.database_path), VintedAccount(label="X"))
+    # El uso de la suscripción es siempre el propio, aunque quien mire sea
+    # admin: hay que darle un dueño a la cuenta para que cuente.
+    admin = users_store.get_user_by_email(str(settings.database_path), TEST_EMAIL)
+    account = accounts_store.create_account(
+        str(settings.database_path), VintedAccount(label="X"), owner_user_id=admin.id
+    )
     listings_store.create_listing(str(settings.database_path), Listing(account_id=account.id))
 
     response = client.get("/billing")
@@ -140,7 +144,6 @@ def test_webhook_no_exige_sesion(tmp_path) -> None:
     fake_stripe = _FakeStripeClient()
     settings = Settings(
         database_path=tmp_path / "test.db",
-        dashboard_password_hash=hash_password(TEST_PASSWORD),
         stripe_secret_key="sk_test_x",
         stripe_webhook_secret="whsec_x",
     )
@@ -160,7 +163,6 @@ def test_webhook_firma_invalida_da_400(tmp_path) -> None:
     fake_stripe.raise_on_verify = True
     settings = Settings(
         database_path=tmp_path / "test.db",
-        dashboard_password_hash=hash_password(TEST_PASSWORD),
         stripe_secret_key="sk_test_x",
         stripe_webhook_secret="whsec_x",
     )

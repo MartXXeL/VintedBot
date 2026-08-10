@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+{% block title %}Administración · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Perfiles del panel</h2>
+  <p class="meta">
+    Cada perfil solo ve y gestiona sus propias cuentas de Vinted, anuncios y
+    ofertas. Un admin las ve todas, además de esta pantalla.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Rol</th>
+        <th>Estado</th>
+        <th>Suscripción</th>
+        <th>Alta</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for user in users %}
+      <tr>
+        <td>
+          <strong>{{ user.email }}</strong>
+          {% if user.id == current_user.id %}<span class="meta">(tú)</span>{% endif %}
+        </td>
+        <td>
+          {% if user.role == "admin" %}<span class="badge ok">Admin</span>
+          {% else %}<span class="badge muted">Miembro</span>{% endif %}
+        </td>
+        <td>
+          {% if user.is_active %}<span class="badge ok">Activo</span>
+          {% else %}<span class="badge danger">Desactivado</span>{% endif %}
+        </td>
+        <td>
+          {% if user.plan_id %}{{ plans[user.plan_id].name if user.plan_id in plans else user.plan_id }} · {{ user.subscription_status }}
+          {% else %}<span class="meta">sin plan asignado</span>{% endif %}
+        </td>
+        <td class="meta">{{ user.created_at.strftime("%d/%m/%Y") }}</td>
+        <td>
+          <details>
+            <summary style="cursor:pointer; font-size:12.5px; color:var(--text-dim)">Gestionar</summary>
+            <div style="margin-top:8px; display:flex; flex-direction:column; gap:8px; min-width:220px">
+
+              <form method="post" action="/admin/users/{{ user.id }}/role">
+                <div class="field-row">
+                  <select name="role" style="flex:1">
+                    <option value="member" {{ "selected" if user.role == "member" }}>Miembro</option>
+                    <option value="admin" {{ "selected" if user.role == "admin" }}>Admin</option>
+                  </select>
+                  <button type="submit" class="ghost">Cambiar rol</button>
+                </div>
+              </form>
+
+              <form method="post" action="/admin/users/{{ user.id }}/active">
+                <div class="checkbox-row">
+                  <input type="checkbox" id="active-{{ user.id }}" name="is_active" {{ "checked" if user.is_active }}>
+                  <label for="active-{{ user.id }}" class="mt-0">Cuenta activa</label>
+                </div>
+                <button type="submit" class="ghost" style="margin-top:4px">Guardar estado</button>
+              </form>
+
+              <form method="post" action="/admin/users/{{ user.id }}/subscription">
+                <div class="field-row">
+                  <select name="plan_id" style="flex:1">
+                    <option value="">Sin plan</option>
+                    {% for plan_id, plan in plans.items() %}
+                    <option value="{{ plan_id }}" {{ "selected" if user.plan_id == plan_id }}>{{ plan.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <select name="subscription_status" style="flex:1">
+                    {% for status in ("none", "active", "canceled", "past_due") %}
+                    <option value="{{ status }}" {{ "selected" if user.subscription_status == status }}>{{ status }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <button type="submit" class="ghost" style="margin-top:4px">Guardar suscripción</button>
+              </form>
+
+              <form method="post" action="/admin/users/{{ user.id }}/reset-password"
+                    data-confirm="¿Restablecer la contraseña de «{{ user.email }}»? La actual dejará de servir.">
+                <button type="submit" class="ghost">Restablecer contraseña</button>
+              </form>
+            </div>
+          </details>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel" style="max-width:480px">
+  <h2>Dar de alta un perfil</h2>
+  <form method="post" action="/admin/users">
+    <div class="field">
+      <label for="new-email">Email</label>
+      <input id="new-email" name="email" type="email" required placeholder="persona@ejemplo.com">
+    </div>
+    <div class="field">
+      <label for="new-role">Rol</label>
+      <select id="new-role" name="role">
+        <option value="member">Miembro (solo sus propias cuentas)</option>
+        <option value="admin">Admin (gestiona todo el panel)</option>
+      </select>
+    </div>
+    <button type="submit" class="primary">Crear perfil</button>
+    <p class="meta">Se genera una contraseña aleatoria que solo se muestra una vez, en el aviso de arriba.</p>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,5 +1,7 @@
 """Negociación: ofertas ya decididas y redactadas por el trabajador, a la espera
 de que un humano las apruebe (o las descarte) antes de que se manden a Vinted.
+
+Un member solo ve/gestiona las ofertas de sus propias cuentas; un admin, todas.
 """
 
 from collections.abc import Callable
@@ -8,11 +10,14 @@ from fastapi import APIRouter, Depends, Request
 
 from src.core.logger import logger
 from src.core.settings import Settings
+from src.core.users import User
 from src.storage import accounts_store, listings_store, offers_store
 from src.ui.deps import (
+    get_current_user,
     get_db_path,
     get_session_client_factory,
     get_settings,
+    owner_filter_for,
     redirect_with_message,
     require_login,
 )
@@ -22,17 +27,35 @@ from src.worker.scheduler import send_offer_reply_now
 router = APIRouter(dependencies=[Depends(require_login)])
 
 
+def _owned_offer(db_path: str, offer_id: int, user: User):
+    """La oferta y su cuenta si existen Y son del usuario (o es admin); si no, `None`."""
+    offer = offers_store.get_offer(db_path, offer_id)
+    if offer is None:
+        return None
+    account = accounts_store.get_account(db_path, offer.account_id)
+    if account is None:
+        return None
+    if user.role != "admin" and account.owner_user_id != user.id:
+        return None
+    return offer, account
+
+
 @router.get("/offers")
-def list_offers_view(request: Request, db_path: str = Depends(get_db_path)):
+def list_offers_view(request: Request, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)):
     templates = request.app.state.templates
+    accounts = {a.id: a for a in accounts_store.list_accounts(db_path, owner_user_id=owner_filter_for(user))}
+    visible_offers = [
+        offer for offer in offers_store.list_offers(db_path, status="pending") if offer.account_id in accounts
+    ]
     return templates.TemplateResponse(
         request,
         "offers.html",
         {
             "active": "offers",
-            "offers": offers_store.list_offers(db_path, status="pending"),
+            "current_user": user,
+            "offers": visible_offers,
             "listings": {listing.id: listing for listing in listings_store.list_listings(db_path)},
-            "accounts": {account.id: account for account in accounts_store.list_accounts(db_path)},
+            "accounts": accounts,
             "ok": request.query_params.get("ok"),
             "error": request.query_params.get("error"),
         },
@@ -45,14 +68,12 @@ async def approve_offer(
     db_path: str = Depends(get_db_path),
     settings: Settings = Depends(get_settings),
     client_factory: Callable[[str, str], VintedSessionClient] = Depends(get_session_client_factory),
+    user: User = Depends(get_current_user),
 ):
-    offer = offers_store.get_offer(db_path, offer_id)
-    if offer is None:
+    owned = _owned_offer(db_path, offer_id, user)
+    if owned is None:
         return redirect_with_message("/offers", error="Oferta no encontrada")
-
-    account = accounts_store.get_account(db_path, offer.account_id)
-    if account is None:
-        return redirect_with_message("/offers", error="Cuenta no encontrada")
+    offer, account = owned
 
     cookie = accounts_store.get_account_session_cookie(db_path, account.id)
     if not cookie:
@@ -78,8 +99,8 @@ async def approve_offer(
 
 
 @router.post("/offers/{offer_id}/discard")
-def discard_offer_route(offer_id: int, db_path: str = Depends(get_db_path)):
-    if offers_store.get_offer(db_path, offer_id) is None:
+def discard_offer_route(offer_id: int, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)):
+    if _owned_offer(db_path, offer_id, user) is None:
         return redirect_with_message("/offers", error="Oferta no encontrada")
     offers_store.discard_offer(db_path, offer_id)
     return redirect_with_message("/offers", ok="Oferta descartada")

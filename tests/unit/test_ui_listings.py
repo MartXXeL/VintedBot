@@ -5,11 +5,13 @@ from PIL import Image
 
 from src.core.security import hash_password
 from src.core.settings import Settings
-from src.storage import accounts_store, listings_store, sales_store
+from src.storage import accounts_store, listings_store, sales_store, users_store
+from src.storage.db import init_db
 from src.ui.app import create_app
 from src.vinted.errors import VintedApiError
 from src.vinted.models import Listing, VintedAccount
 
+TEST_EMAIL = "admin@example.com"
 TEST_PASSWORD = "una-contraseña-de-prueba"
 
 
@@ -52,18 +54,16 @@ def _fake_jpeg_bytes() -> bytes:
 
 
 def _make_client(tmp_path, fake_session_client=None) -> TestClient:
-    settings = Settings(
-        database_path=tmp_path / "test.db",
-        env_path=tmp_path / ".env",
-        dashboard_password_hash=hash_password(TEST_PASSWORD),
-    )
+    settings = Settings(database_path=tmp_path / "test.db", env_path=tmp_path / ".env")
+    init_db(settings.database_path)
+    users_store.create_user(str(settings.database_path), TEST_EMAIL, hash_password(TEST_PASSWORD), role="admin")
     app = create_app(
         settings,
         start_worker=False,
         session_client_factory=(lambda domain, cookie: fake_session_client) if fake_session_client else None,
     )
     client = TestClient(app)
-    client.post("/login", data={"password": TEST_PASSWORD})
+    client.post("/login", data={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     return client, settings
 
 
@@ -318,13 +318,14 @@ def test_publicar_cuenta_api_con_credenciales_publica_de_verdad(tmp_path) -> Non
     settings = Settings(
         database_path=tmp_path / "test.db",
         env_path=tmp_path / ".env",
-        dashboard_password_hash=hash_password(TEST_PASSWORD),
         vinted_api_client_id="cid",
         vinted_api_client_secret="secret",
     )
+    init_db(settings.database_path)
+    users_store.create_user(str(settings.database_path), TEST_EMAIL, hash_password(TEST_PASSWORD), role="admin")
     app = create_app(settings, start_worker=False, api_client_factory=lambda s: fake_api_client)
     client = TestClient(app)
-    client.post("/login", data={"password": TEST_PASSWORD})
+    client.post("/login", data={"email": TEST_EMAIL, "password": TEST_PASSWORD})
 
     account = accounts_store.create_account(
         str(settings.database_path), VintedAccount(label="X", connection_mode="api")

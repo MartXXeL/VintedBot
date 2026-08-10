@@ -2,25 +2,26 @@ from fastapi.testclient import TestClient
 
 from src.core.security import hash_password
 from src.core.settings import Settings
+from src.storage import users_store
+from src.storage.db import init_db
 from src.ui.app import create_app
 
+TEST_EMAIL = "admin@example.com"
 TEST_PASSWORD = "una-contraseña-de-prueba"
 
 
 def _make_client(tmp_path) -> TestClient:
-    settings = Settings(
-        database_path=tmp_path / "test.db",
-        env_path=tmp_path / ".env",
-        dashboard_password_hash=hash_password(TEST_PASSWORD),
-    )
+    settings = Settings(database_path=tmp_path / "test.db", env_path=tmp_path / ".env")
+    init_db(settings.database_path)
+    users_store.create_user(str(settings.database_path), TEST_EMAIL, hash_password(TEST_PASSWORD), role="admin")
     app = create_app(settings, start_worker=False)
     client = TestClient(app)
-    client.post("/login", data={"password": TEST_PASSWORD})
+    client.post("/login", data={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     return client
 
 
 def test_tutorial_exige_sesion(tmp_path) -> None:
-    settings = Settings(database_path=tmp_path / "test.db", dashboard_password_hash=hash_password(TEST_PASSWORD))
+    settings = Settings(database_path=tmp_path / "test.db")
     client = TestClient(create_app(settings, start_worker=False))
     response = client.get("/tutorial", follow_redirects=False)
     assert response.status_code == 303

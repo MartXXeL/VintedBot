@@ -5,6 +5,9 @@ La IA solo PROPONE (`build_listing_draft`): el anuncio se guarda como
 "Publicar ahora" lo mande de verdad a Vinted — la publicación automática por
 el trabajador en segundo plano (`auto_publish`) es un flag aparte, opt-in,
 desde el dashboard.
+
+Un member solo ve y toca los anuncios de sus propias cuentas; un admin, los
+de todas (`_owned_listing` es la única puerta de entrada a un anuncio por id).
 """
 
 import uuid
@@ -18,13 +21,16 @@ from src.ai.listing_writer import build_listing_draft
 from src.ai.providers import AIProvider
 from src.core.logger import logger
 from src.core.settings import Settings
+from src.core.users import User
 from src.storage import accounts_store, listings_store, sales_store
 from src.ui.deps import (
     get_ai_provider,
     get_api_client_factory,
+    get_current_user,
     get_db_path,
     get_session_client_factory,
     get_settings,
+    owner_filter_for,
     redirect_with_message,
     require_login,
 )
@@ -40,16 +46,33 @@ def _photos_dir(settings: Settings) -> Path:
     return Path(settings.database_path).parent / "photos"
 
 
+def _owned_listing(db_path: str, listing_id: int, user: User) -> tuple[Listing, VintedAccount] | None:
+    """El anuncio y su cuenta si existen Y son del usuario (o si es admin); si no, `None`."""
+    listing = listings_store.get_listing(db_path, listing_id)
+    if listing is None:
+        return None
+    account = accounts_store.get_account(db_path, listing.account_id)
+    if account is None:
+        return None
+    if user.role != "admin" and account.owner_user_id != user.id:
+        return None
+    return listing, account
+
+
 @router.get("/listings")
-def list_listings_view(request: Request, db_path: str = Depends(get_db_path)):
+def list_listings_view(request: Request, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)):
     templates = request.app.state.templates
-    accounts = {a.id: a for a in accounts_store.list_accounts(db_path)}
+    accounts = {a.id: a for a in accounts_store.list_accounts(db_path, owner_user_id=owner_filter_for(user))}
+    visible_listings = [
+        listing for listing in listings_store.list_listings(db_path) if listing.account_id in accounts
+    ]
     return templates.TemplateResponse(
         request,
         "listings.html",
         {
             "active": "listings",
-            "listings": listings_store.list_listings(db_path),
+            "current_user": user,
+            "listings": visible_listings,
             "accounts": accounts,
             "ok": request.query_params.get("ok"),
             "error": request.query_params.get("error"),
@@ -58,14 +81,15 @@ def list_listings_view(request: Request, db_path: str = Depends(get_db_path)):
 
 
 @router.get("/listings/new")
-def new_listing_form(request: Request, db_path: str = Depends(get_db_path)):
+def new_listing_form(request: Request, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)):
     templates = request.app.state.templates
     return templates.TemplateResponse(
         request,
         "listing_new.html",
         {
             "active": "listings",
-            "accounts": accounts_store.list_accounts(db_path),
+            "current_user": user,
+            "accounts": accounts_store.list_accounts(db_path, owner_user_id=owner_filter_for(user)),
             "error": request.query_params.get("error"),
         },
     )
@@ -81,8 +105,10 @@ async def generate_listing(
     db_path: str = Depends(get_db_path),
     settings: Settings = Depends(get_settings),
     ai_provider: AIProvider = Depends(get_ai_provider),
+    user: User = Depends(get_current_user),
 ):
-    if accounts_store.get_account(db_path, account_id) is None:
+    account = accounts_store.get_account(db_path, account_id)
+    if account is None or (user.role != "admin" and account.owner_user_id != user.id):
         return redirect_with_message("/listings/new", error="Cuenta no encontrada")
 
     raw_photos = []
@@ -125,25 +151,34 @@ async def generate_listing(
 
 
 @router.get("/listings/{listing_id}/photos/{index}")
-def get_listing_photo(listing_id: int, index: int, db_path: str = Depends(get_db_path)):
+def get_listing_photo(
+    listing_id: int, index: int, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)
+):
     """Sirve una foto ya subida — detrás de login, a diferencia de un `StaticFiles` suelto.
 
     Las fotos de un anuncio pueden incluir detalles del vendedor (matrículas,
     caras, direcciones de fondo); no tiene sentido que naveguen sin sesión
-    cuando el resto del panel entero exige login.
+    cuando el resto del panel entero exige login, ni que las vea nadie que
+    no sea el dueño de la cuenta (o un admin).
     """
-    listing = listings_store.get_listing(db_path, listing_id)
-    if listing is None or not (0 <= index < len(listing.photo_paths)):
+    owned = _owned_listing(db_path, listing_id, user)
+    if owned is None:
+        raise HTTPException(status_code=404)
+    listing, _account = owned
+    if not (0 <= index < len(listing.photo_paths)):
         raise HTTPException(status_code=404)
     return FileResponse(listing.photo_paths[index], media_type="image/jpeg")
 
 
 @router.get("/listings/{listing_id}/edit")
-def edit_listing_form(request: Request, listing_id: int, db_path: str = Depends(get_db_path)):
+def edit_listing_form(
+    request: Request, listing_id: int, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)
+):
     templates = request.app.state.templates
-    listing = listings_store.get_listing(db_path, listing_id)
-    if listing is None:
+    owned = _owned_listing(db_path, listing_id, user)
+    if owned is None:
         return redirect_with_message("/listings", error="Anuncio no encontrado")
+    listing, account = owned
 
     photo_urls = [f"/listings/{listing.id}/photos/{i}" for i in range(len(listing.photo_paths))]
 
@@ -152,9 +187,10 @@ def edit_listing_form(request: Request, listing_id: int, db_path: str = Depends(
         "listing_edit.html",
         {
             "active": "listings",
+            "current_user": user,
             "listing": listing,
             "photo_urls": photo_urls,
-            "account": accounts_store.get_account(db_path, listing.account_id),
+            "account": account,
             "conditions": CONDITION_LABELS_ES,
             "ok": request.query_params.get("ok"),
             "error": request.query_params.get("error"),
@@ -174,8 +210,9 @@ def update_listing(
     price: float = Form(...),
     min_price: float = Form(...),
     db_path: str = Depends(get_db_path),
+    user: User = Depends(get_current_user),
 ):
-    if listings_store.get_listing(db_path, listing_id) is None:
+    if _owned_listing(db_path, listing_id, user) is None:
         return redirect_with_message("/listings", error="Anuncio no encontrado")
 
     listings_store.update_listing_fields(
@@ -200,15 +237,13 @@ async def publish_listing_route(
     settings: Settings = Depends(get_settings),
     session_client_factory: Callable[[str, str], VintedSessionClient] = Depends(get_session_client_factory),
     api_client_factory: Callable[[Settings], VintedApiClient] = Depends(get_api_client_factory),
+    user: User = Depends(get_current_user),
 ):
-    listing = listings_store.get_listing(db_path, listing_id)
-    if listing is None:
-        return redirect_with_message("/listings", error="Anuncio no encontrado")
-
-    account = accounts_store.get_account(db_path, listing.account_id)
+    owned = _owned_listing(db_path, listing_id, user)
     edit_url = f"/listings/{listing_id}/edit"
-    if account is None:
-        return redirect_with_message(edit_url, error="Cuenta no encontrada")
+    if owned is None:
+        return redirect_with_message("/listings", error="Anuncio no encontrado")
+    listing, account = owned
     if not listing.title or not listing.photo_paths or not listing.min_price:
         return redirect_with_message(edit_url, error="Completa título, fotos y precio mínimo antes de publicar")
 
@@ -262,16 +297,20 @@ def _publish_failure_redirect(db_path: str, account: VintedAccount, edit_url: st
 
 @router.post("/listings/{listing_id}/sold")
 def mark_sold_route(
-    listing_id: int, sale_amount: float = Form(...), db_path: str = Depends(get_db_path)
+    listing_id: int,
+    sale_amount: float = Form(...),
+    db_path: str = Depends(get_db_path),
+    user: User = Depends(get_current_user),
 ):
     """Marca un anuncio publicado como vendido y registra la venta.
 
     Sin esto, `src/compliance/dac7.py` nunca tendría datos reales que
     evaluar: es el único sitio del panel que crea una fila en `sales`.
     """
-    listing = listings_store.get_listing(db_path, listing_id)
-    if listing is None:
+    owned = _owned_listing(db_path, listing_id, user)
+    if owned is None:
         return redirect_with_message("/listings", error="Anuncio no encontrado")
+    listing, _account = owned
     if listing.status != "published":
         return redirect_with_message(
             f"/listings/{listing_id}/edit", error="Solo se puede marcar como vendido un anuncio publicado"
@@ -287,6 +326,10 @@ def mark_sold_route(
 
 
 @router.post("/listings/{listing_id}/delete")
-def delete_listing_route(listing_id: int, db_path: str = Depends(get_db_path)):
+def delete_listing_route(
+    listing_id: int, db_path: str = Depends(get_db_path), user: User = Depends(get_current_user)
+):
+    if _owned_listing(db_path, listing_id, user) is None:
+        return redirect_with_message("/listings", error="Anuncio no encontrado")
     listings_store.delete_listing(db_path, listing_id)
     return redirect_with_message("/listings", ok="Anuncio borrado")

@@ -15,8 +15,10 @@ from src.billing.plans import PLANS, calculate_monthly_price, recommend_plan
 from src.billing.stripe_client import WebhookVerificationError
 from src.core.logger import logger
 from src.core.settings import Settings
+from src.core.users import User
 from src.storage import accounts_store, listings_store
 from src.ui.deps import (
+    get_current_user,
     get_db_path,
     get_settings,
     get_stripe_client_factory,
@@ -32,9 +34,14 @@ webhook_router = APIRouter()
 # de `Settings` que lo guarda — así no hace falta un mapeo aparte.
 
 
-def _current_usage(db_path: str) -> tuple[int, int]:
-    """(cuentas conectadas, anuncios generados/publicados este mes natural)."""
-    accounts = accounts_store.list_accounts(db_path)
+def _current_usage(db_path: str, owner_user_id: int) -> tuple[int, int]:
+    """(cuentas propias conectadas, anuncios generados/publicados este mes natural).
+
+    Deliberadamente siempre las del usuario que mira la pantalla (incluso si
+    es admin): la suscripción es personal, no una vista agregada de todo el
+    panel — para eso está `/admin`.
+    """
+    accounts = accounts_store.list_accounts(db_path, owner_user_id=owner_user_id)
     since_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     listings_this_month = sum(
         listings_store.count_listings_since(db_path, account.id, since_month_start) for account in accounts
@@ -44,10 +51,13 @@ def _current_usage(db_path: str) -> tuple[int, int]:
 
 @router.get("/billing")
 def billing_view(
-    request: Request, db_path: str = Depends(get_db_path), settings: Settings = Depends(get_settings)
+    request: Request,
+    db_path: str = Depends(get_db_path),
+    settings: Settings = Depends(get_settings),
+    user: User = Depends(get_current_user),
 ):
     templates = request.app.state.templates
-    connected_accounts, listings_this_month = _current_usage(db_path)
+    connected_accounts, listings_this_month = _current_usage(db_path, user.id)
     calculations = {
         plan_id: calculate_monthly_price(plan, connected_accounts, listings_this_month)
         for plan_id, plan in PLANS.items()
@@ -59,6 +69,7 @@ def billing_view(
         "billing.html",
         {
             "active": "billing",
+            "current_user": user,
             "plans": PLANS,
             "calculations": calculations,
             "recommended_plan_id": recommended.plan_id,

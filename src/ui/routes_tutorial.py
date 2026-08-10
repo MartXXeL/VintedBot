@@ -9,12 +9,13 @@ cercano que el README.
 
 from fastapi import APIRouter, Depends, Request
 
-from src.ui.deps import require_login
+from src.core.users import User
+from src.ui.deps import get_current_user, require_login
 
 router = APIRouter(dependencies=[Depends(require_login)])
 
 
 @router.get("/tutorial")
-def tutorial_view(request: Request):
+def tutorial_view(request: Request, user: User = Depends(get_current_user)):
     templates = request.app.state.templates
-    return templates.TemplateResponse(request, "tutorial.html", {"active": "tutorial"})
+    return templates.TemplateResponse(request, "tutorial.html", {"active": "tutorial", "current_user": user})

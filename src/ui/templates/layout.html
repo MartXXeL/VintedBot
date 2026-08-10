@@ -18,10 +18,14 @@
       <a href="/offers" class="{{ 'is-active' if active == 'offers' else '' }}">Negociación</a>
       <a href="/compliance" class="{{ 'is-active' if active == 'compliance' else '' }}">DAC7</a>
       <a href="/billing" class="{{ 'is-active' if active == 'billing' else '' }}">Suscripción</a>
-      <a href="/settings" class="{{ 'is-active' if active == 'settings' else '' }}">Ajustes</a>
       <a href="/tutorial" class="{{ 'is-active' if active == 'tutorial' else '' }}">Ayuda</a>
+      {% if current_user and current_user.role == "admin" %}
+      <a href="/settings" class="{{ 'is-active' if active == 'settings' else '' }}">Ajustes</a>
+      <a href="/admin" class="{{ 'is-active' if active == 'admin' else '' }}">Administración</a>
+      {% endif %}
     </nav>
     <div class="topbar-actions">
+      {% if current_user %}<span class="meta">{{ current_user.email }}</span>{% endif %}
       <form method="post" action="/logout"><button class="ghost" type="submit">Salir</button></form>
     </div>
   </div>

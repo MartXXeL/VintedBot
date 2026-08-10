@@ -1,5 +1,10 @@
 """Ajustes: edita `.env` desde un formulario tipado (no en texto libre).
 
+Configuración de infraestructura compartida por todo el panel (claves de
+IA, credenciales de la API de Vinted, Stripe, ritmo seguro...), no de un
+perfil concreto — por eso es solo para admin, a diferencia del resto de
+pantallas, que cada member ve escopadas a lo suyo.
+
 Los campos sensibles (claves de API, credenciales) nunca se vuelven a
 mostrar en el HTML una vez guardados — solo un indicador de que ya están
 configurados — para no dejarlos expuestos en el código fuente de la página.
@@ -12,19 +17,23 @@ from fastapi import APIRouter, Depends, Form, Request
 
 from src.core.env_file import update_env_file
 from src.core.settings import Settings
-from src.ui.deps import get_settings, redirect_with_message, require_login
+from src.core.users import User
+from src.ui.deps import get_current_user, get_settings, redirect_with_message, require_admin
 
-router = APIRouter(dependencies=[Depends(require_login)])
+router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 @router.get("/settings")
-def settings_view(request: Request, settings: Settings = Depends(get_settings)):
+def settings_view(
+    request: Request, settings: Settings = Depends(get_settings), user: User = Depends(get_current_user)
+):
     templates = request.app.state.templates
     return templates.TemplateResponse(
         request,
         "settings.html",
         {
             "active": "settings",
+            "current_user": user,
             "settings": settings,
             "ok": request.query_params.get("ok"),
             "error": request.query_params.get("error"),
