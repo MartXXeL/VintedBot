@@ -65,27 +65,27 @@ ni ningún navegador de por medio.
 ```mermaid
 flowchart LR
     subgraph PANEL["Panel web (FastAPI)"]
-        DASH["Cuentas<br/><i>conectar, activar automatización</i>"]
-        LIST["Anuncios<br/><i>generar con IA, editar, publicar</i>"]
-        NEG["Negociación<br/><i>aprobar / descartar</i>"]
+        DASH["Cuentas: conectar, activar automatización"]
+        LIST["Anuncios: generar con IA, editar, publicar"]
+        NEG["Negociación: aprobar o descartar"]
         COMP["DAC7"]
         SET["Ajustes"]
     end
 
     subgraph NUCLEO["Núcleo"]
-        AI["Proveedor de IA<br/><i>Claude Sonnet 5 · simulado</i>"]
-        ENG["Motor de negociación<br/><i>reglas puras, sin IA</i>"]
+        AI["Proveedor de IA: Claude Sonnet 5 o simulado"]
+        ENG["Motor de negociación: reglas puras, sin IA"]
         RL["Limitador de ritmo"]
         WORK["Trabajador en segundo plano"]
     end
 
     subgraph VINTED["Vinted"]
-        API["Vía oficial<br/><i>Pro Integrations</i>"]
-        SESSION["Vía de sesión<br/><i>httpx, sin navegador</i>"]
+        API["Vía oficial: Pro Integrations"]
+        SESSION["Vía de sesión: httpx, sin navegador"]
     end
 
     subgraph DATOS["Persistencia"]
-        DB[("SQLite cifrado<br/>cuentas · anuncios · ofertas · ventas")]
+        DB[("SQLite cifrado: cuentas, anuncios, ofertas, ventas")]
         PHOTOS[("data/photos/")]
     end
 
@@ -130,16 +130,16 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A["Subir fotos + precio + precio mínimo"] --> B["Preprocesar fotos<br/>(1568px de lado largo, JPEG)"]
-    B --> C["IA con visión<br/>extrae campos + redacta"]
-    C --> D["Guardar como borrador<br/>(status = draft)"]
+    A["Subir fotos + precio + precio mínimo"] --> B["Preprocesar fotos: 1568px de lado largo, JPEG"]
+    B --> C["IA con visión: extrae campos y redacta"]
+    C --> D["Guardar como borrador (status = draft)"]
     D --> E{"Revisar y editar"}
-    E --> F["Publicar ahora<br/>(botón manual)"]
-    E --> G["Activar auto_publish<br/>(el trabajador lo publica solo)"]
-    F --> H{"¿Ritmo seguro<br/>lo permite ahora?"}
+    E --> F["Publicar ahora, botón manual"]
+    E --> G["Activar auto_publish: el trabajador lo publica solo"]
+    F --> H{"¿El ritmo seguro lo permite ahora?"}
     G --> H
-    H -- "sí" --> I["Subir fotos a Vinted<br/>+ crear el artículo"]
-    H -- "no" --> J["Bloqueado: se avisa el motivo<br/>(se reintenta en el siguiente ciclo)"]
+    H -- "sí" --> I["Subir fotos a Vinted y crear el artículo"]
+    H -- "no" --> J["Bloqueado: se avisa el motivo y se reintenta en el siguiente ciclo"]
     I --> K["status = published"]
 ```
 
@@ -147,21 +147,21 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["El trabajador sondea conversaciones<br/>(al ritmo seguro, no en cada oferta)"] --> B{"¿Oferta nueva<br/>sin procesar?"}
+    A["El trabajador sondea conversaciones al ritmo seguro, no en cada oferta"] --> B{"¿Hay una oferta nueva sin procesar?"}
     B -- "no" --> A
-    B -- "sí" --> C["Motor de reglas decide<br/>según el precio mínimo del anuncio"]
-    C --> D{"ratio = oferta / mínimo"}
-    D -- "≥ 75%" --> E["Aceptar"]
-    D -- "40%-74%" --> F["Contraofertar<br/>(punto medio con el precio de venta)"]
-    D -- "< 40%" --> G["Rechazar"]
-    E --> H["IA redacta la respuesta<br/>(recibe la decisión ya tomada,<br/>nunca el precio mínimo)"]
+    B -- "sí" --> C["Motor de reglas decide según el precio mínimo del anuncio"]
+    C --> D{"ratio = oferta dividido entre mínimo"}
+    D -- "75 por ciento o más" --> E["Aceptar"]
+    D -- "entre 40 y 74 por ciento" --> F["Contraofertar: punto medio con el precio de venta"]
+    D -- "menos de 40 por ciento" --> G["Rechazar"]
+    E --> H["IA redacta la respuesta: recibe la decisión ya tomada, nunca el precio mínimo"]
     F --> H
     G --> H
-    H --> I["Oferta 'pending' en el panel"]
-    I --> J{"¿auto_reply_offers<br/>activo en la cuenta?"}
-    J -- "no" --> K["Espera aprobación humana<br/>(Aprobar y enviar / Descartar)"]
+    H --> I["Oferta en estado pendiente, dentro del panel"]
+    I --> J{"¿Respuesta automática activa en la cuenta?"}
+    J -- "no" --> K["Espera aprobación humana: aprobar y enviar, o descartar"]
     J -- "sí" --> L["Se manda sola a Vinted"]
-    K -- "Aprobar" --> L
+    K -- "aprobar" --> L
     L --> M["status = sent"]
 ```
 
