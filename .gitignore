@@ -30,10 +30,8 @@ session_*.json
 # Logs y artefactos manuales
 *.log
 
-# Imágenes de referencia sueltas en la raíz (recortes de prensa, mockups de
-# terceros...): no son propias del proyecto ni del autor, así que no se
-# versionan aunque anden por el working tree. Lo que sí es del proyecto está
-# organizado en src/ui/static/img/ y docs/assets/.
-/f.elconfidencial.com_*.jpg
-/header.*.png
-/original-*.webp
+# Imágenes de referencia (recortes de prensa, mockups de terceros usados solo
+# como inspiración visual): no son propias del proyecto ni del autor, así que
+# se guardan localmente para consultarlas pero no se versionan. Lo que sí es
+# del proyecto está en src/ui/static/img/ y en el resto de docs/assets/.
+/docs/assets/reference/
