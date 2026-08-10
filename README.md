@@ -115,8 +115,8 @@ flowchart LR
 
 | Módulo | Responsabilidad |
 |---|---|
-| `src/core/` | Configuración (`.env`), logger, hash de la contraseña del panel |
-| `src/storage/` | Cifrado en reposo (Fernet) + persistencia SQLite: cuentas, anuncios, ofertas, ventas, registro de acciones |
+| `src/core/` | Configuración (`.env`), logger, modelo de usuario, hash de contraseñas |
+| `src/storage/` | Cifrado en reposo (Fernet) + persistencia SQLite: usuarios, cuentas, anuncios, ofertas, ventas, registro de acciones |
 | `src/vinted/` | Modelos de datos, clientes (API oficial y sesión), limitador de ritmo |
 | `src/negotiation/` | Motor de decisión puro: aceptar / contraofertar / rechazar, sin IA ni red |
 | `src/ai/` | Proveedores de IA (Anthropic + simulado), preprocesado de fotos, redacción de anuncios y respuestas |
@@ -226,11 +226,17 @@ cp .env.example .env
 python -m src.main
 ```
 
-Esto levanta el panel en `http://127.0.0.1:8080`. En el primer arranque se
-genera una contraseña del panel y se muestra **una sola vez** en la
-consola — apúntala. El trabajador en segundo plano arranca en el mismo
-proceso: sin cuentas conectadas, o con `auto_publish`/`auto_reply_offers`
-desactivados, simplemente no tiene nada que hacer.
+Esto levanta el panel en `http://127.0.0.1:8080`. En el primer arranque, si
+todavía no hay ningún usuario, se crea uno admin con el email de
+`ADMIN_BOOTSTRAP_EMAIL` (por defecto `admin@tu-dominio.com`, cámbialo en
+`.env`) y una contraseña generada que se muestra **una sola vez** en la
+consola — apúntala. Desde `/admin` ese admin puede dar de alta al resto de
+perfiles (cada uno con su propio email, contraseña y rol) y gestionar sus
+suscripciones; un perfil `member` solo ve y gestiona sus propias cuentas de
+Vinted, un `admin` las ve todas. El trabajador en segundo plano arranca en
+el mismo proceso: sin cuentas conectadas, o con
+`auto_publish`/`auto_reply_offers` desactivados, simplemente no tiene nada
+que hacer.
 
 ## Variables de entorno
 
@@ -240,7 +246,7 @@ editar desde **Ajustes** en el propio panel (que reescribe `.env`).
 | Variable | Obligatoria | Por defecto | Descripción |
 |---|---|---|---|
 | `DASHBOARD_HOST` / `DASHBOARD_PORT` | No | `127.0.0.1` / `8080` | Dónde escucha el panel |
-| `DASHBOARD_PASSWORD_HASH` | No | se genera | Contraseña del panel (hash, nunca texto plano) |
+| `ADMIN_BOOTSTRAP_EMAIL` | No | `admin@tu-dominio.com` | Email del primer usuario (admin), creado solo si no hay ninguno |
 | `DASHBOARD_FORCE_HTTPS` | No | `false` | `Secure` en la cookie de sesión (solo detrás de HTTPS) |
 | `DB_ENCRYPTION_KEY` | No | se genera | Clave del cifrado en reposo — no la pierdas |
 | `ANTHROPIC_API_KEY` | No | — | Sin ella, IA simulada |
@@ -257,6 +263,10 @@ editar desde **Ajustes** en el propio panel (que reescribe `.env`).
 
 ## El panel web
 
+Cada pantalla (salvo Ajustes y Administración, solo para admin) se escopa
+sola al usuario que ha iniciado sesión: un `member` solo ve y gestiona sus
+propias cuentas, anuncios y ofertas; un `admin` las ve todas.
+
 - **Cuentas**: conectar una cuenta (sesión o API oficial), activar
   publicación/respuesta automáticas por cuenta, ver cuántas acciones lleva
   hoy frente al tope diario. Si Vinted rechaza una publicación o una
@@ -269,12 +279,18 @@ editar desde **Ajustes** en el propio panel (que reescribe `.env`).
   Aprobar y enviar o Descartar (salvo envío automático activado).
 - **DAC7**: ingresos y transacciones del año por cuenta frente a los
   umbrales de aviso.
-- **Suscripción**: uso real (cuentas + anuncios del mes) frente a los tres
-  planes, con el recomendado marcado; botón de Stripe Checkout si hay
-  clave configurada.
-- **Ajustes**: IA, Vinted, ritmo seguro, umbrales DAC7 y Stripe — escribe
-  en `.env`; algunos cambios (sobre todo el proveedor de IA) piden
-  reiniciar el proceso para aplicarse del todo.
+- **Suscripción**: uso propio real (cuentas + anuncios del mes) frente a
+  los tres planes, con el recomendado marcado; botón de Stripe Checkout si
+  hay clave configurada.
+- **Ayuda**: tutorial de una sola pantalla que explica paso a paso todo el
+  funcionamiento del panel, pensado para quien entra por primera vez.
+- **Ajustes** (solo admin): IA, Vinted, ritmo seguro, umbrales DAC7 y
+  Stripe — configuración compartida de todo el panel, escribe en `.env`;
+  algunos cambios (sobre todo el proveedor de IA) piden reiniciar el
+  proceso para aplicarse del todo.
+- **Administración** (solo admin): dar de alta perfiles nuevos, cambiar su
+  rol, activarlos o desactivarlos, asignarles a mano un plan y un estado de
+  suscripción, y restablecerles la contraseña.
 
 ## Pruebas e integración continua
 
@@ -296,10 +312,13 @@ estado.
 
 ## Seguridad
 
-- **Login del panel**: contraseña con PBKDF2-HMAC-SHA256 (260.000
-  iteraciones, con sal), nunca en texto plano; bloqueo de 5 minutos tras 5
-  intentos fallidos por IP; sesión con cookie `HttpOnly`+`SameSite=Lax`
-  (+`Secure` con `DASHBOARD_FORCE_HTTPS`).
+- **Login del panel**: cada usuario tiene su propio email y contraseña con
+  PBKDF2-HMAC-SHA256 (260.000 iteraciones, con sal), nunca en texto plano;
+  bloqueo de 5 minutos tras 5 intentos fallidos por IP; sesión con cookie
+  `HttpOnly`+`SameSite=Lax` (+`Secure` con `DASHBOARD_FORCE_HTTPS`).
+- **Permisos por rol**: un `member` solo ve y gestiona sus propias cuentas,
+  anuncios y ofertas; Ajustes y Administración exigen rol `admin`. Un admin
+  no puede quitarse su propio rol ni desactivar su propia cuenta por error.
 - **Cifrado en reposo**: la sesión de cada cuenta de Vinted y el precio
   mínimo de cada anuncio se cifran con Fernet/AES antes de tocar disco; la
   clave se genera sola y vive en `.env` (`DB_ENCRYPTION_KEY`).
@@ -421,11 +440,25 @@ decides y asumes esos riesgos.
 - [x] Reflejar en la cuenta cuándo Vinted rechaza publicar/responder
       (pasa a "Error" sola) y poder reconectarla sin borrarla — probado en
       real: cookie inválida → falla → "Error" → Reconectar sesión → "Conectada"
+- [x] Corregir los tres diagramas del README: el texto con etiquetas HTML se
+      comía saltos de línea al renderizarse en GitHub y pegaba palabras
+- [x] Tutorial de una sola pantalla (`/tutorial`) explicando todo el
+      funcionamiento del panel, enlazado desde la navegación como "Ayuda"
+- [x] Sello animado del perfil de GitHub en una esquina de todas las
+      pantallas, en bucle continuo
+- [x] Usuarios reales (email + contraseña + rol) sustituyendo la
+      contraseña única del panel; primer arranque crea un admin solo
+- [x] Cada pantalla escopada por el usuario propietario (cuentas, anuncios,
+      ofertas, DAC7, suscripción); un admin las ve todas
+- [x] Panel de administración (`/admin`): perfiles, roles, activar o
+      desactivar, suscripción asignada a mano, restablecer contraseña —
+      probado de extremo a extremo (admin, member, permisos cruzados)
 
 ### Ideas para más adelante (fuera del alcance de esta primera versión)
 
 - [ ] Verificar los endpoints de ofertas de la vía de sesión contra tráfico
       real — necesita una cuenta de Vinted real conectada, no se puede
       comprobar solo con tests
-- [ ] Modelo de clientes/suscripciones propio para que el webhook de Stripe
-      actualice algo persistente, no solo lo registre
+- [ ] Enganchar el webhook de Stripe a la suscripción del usuario (ya existe
+      `plan_id`/`subscription_status` por perfil, asignable a mano desde
+      `/admin`, pero el webhook todavía solo registra el evento en el log)
