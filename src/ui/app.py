@@ -33,6 +33,7 @@ from src.ui.routes_dashboard import router as dashboard_router
 from src.ui.routes_listings import router as listings_router
 from src.ui.routes_offers import router as offers_router
 from src.ui.routes_settings import router as settings_router
+from src.ui.routes_tutorial import router as tutorial_router
 from src.ui.sessions import SessionStore
 from src.vinted.api_client import VintedApiClient
 from src.vinted.session_client import VintedSessionClient
@@ -146,5 +147,6 @@ def create_app(
     app.include_router(settings_router)
     app.include_router(billing_router)
     app.include_router(billing_webhook_router)
+    app.include_router(tutorial_router)
 
     return app

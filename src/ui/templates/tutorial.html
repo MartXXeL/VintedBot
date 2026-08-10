@@ -1,0 +1,255 @@
+{% extends "layout.html" %}
+{% block title %}Ayuda · VintedBot{% endblock %}
+{% block content %}
+
+<div class="panel tutorial-hero">
+  <h2 class="mt-0" style="text-transform:none; letter-spacing:normal; font-size:22px; font-family:var(--font-display); color:var(--text)">
+    Cómo funciona VintedBot
+  </h2>
+  <p class="meta" style="font-size:14px; line-height:1.6; max-width:640px">
+    Todo el panel en diez minutos: qué hace cada pantalla, qué decide la IA y
+    qué decide el código, y qué pasa exactamente con tu dinero y tu cuenta de
+    <img src="/static/img/vinted-icon.png" alt="Vinted" style="height:16px; vertical-align:-3px; border-radius:4px; margin:0 2px">
+    <strong style="color:var(--text)">Vinted</strong>. No hace falta leer el
+    README para usar el panel — para eso está esta página.
+  </p>
+  <nav class="tutorial-toc">
+    <a href="#conectar">1. Conectar una cuenta</a>
+    <a href="#anuncios">2. Generar un anuncio</a>
+    <a href="#negociacion">3. Cómo decide la negociación</a>
+    <a href="#aprobar">4. Aprobar o automatizar</a>
+    <a href="#ritmo">5. El ritmo seguro</a>
+    <a href="#vendido">6. Marcar como vendido y DAC7</a>
+    <a href="#ajustes">7. Ajustes</a>
+    <a href="#suscripcion">8. Planes y suscripción</a>
+    <a href="#faq">9. Preguntas frecuentes</a>
+  </nav>
+</div>
+
+<div class="panel tutorial-step" id="conectar">
+  <div class="tutorial-step-number">1</div>
+  <div>
+    <h2 class="mt-0">Conectar una cuenta</h2>
+    <p>
+      Todo empieza en <a href="/">Cuentas</a>. Hay dos formas de conectar una
+      cuenta de <img src="/static/img/vinted-icon.png" alt="" style="height:14px; vertical-align:-2px; border-radius:3px"> Vinted:
+    </p>
+    <table style="margin:10px 0 14px">
+      <thead><tr><th>Vía</th><th>Qué necesita</th><th>Qué cubre</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge ok">Sesión</span></td>
+          <td>La cookie de tu sesión ya iniciada en vinted.es (sin darte de alta en nada)</td>
+          <td>Publicar anuncios, leer y responder ofertas</td>
+        </tr>
+        <tr>
+          <td><span class="badge muted">API oficial</span></td>
+          <td>Alta como vendedor profesional (Vinted Pro Integrations)</td>
+          <td>Publicar anuncios y gestionar pedidos — <strong>no</strong> ofertas ni mensajes</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="meta">
+      Para la vía de sesión: abre vinted.es en el navegador, entra con tu
+      cuenta, abre las herramientas de desarrollador (F12) → pestaña
+      "Application"/"Almacenamiento" → Cookies, y copia el valor completo de
+      <code>access_token_web</code> (y <code>refresh_token_web</code> si lo ves).
+      Pégalo en el campo "Cookie de sesión" al conectar la cuenta — se cifra
+      antes de guardarse, ni el propio archivo de la base de datos la deja
+      leer en claro.
+    </p>
+    <p class="meta">
+      Si más adelante Vinted rechaza una acción (la sesión caduca cada
+      cierto tiempo, es normal), la cuenta pasa sola a
+      <span class="badge danger">Error</span> en el dashboard — no hace
+      falta borrarla: el enlace "Reconectar sesión" en su misma fila renueva
+      la cookie sin perder ningún anuncio ni oferta ya guardados.
+    </p>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="anuncios">
+  <div class="tutorial-step-number">2</div>
+  <div>
+    <h2 class="mt-0">Generar un anuncio con IA</h2>
+    <p>
+      Desde <a href="/listings">Anuncios</a> → "Generar anuncio nuevo": eliges
+      la cuenta, subes una o varias fotos del artículo, y pones el precio de
+      venta y el <strong>precio mínimo</strong> — el más bajo que aceptarías.
+    </p>
+    <p>
+      La IA con visión mira las fotos y rellena categoría, marca, talla,
+      estado y redacta un título y una descripción en tono informal. Todo
+      queda como <span class="badge warn">Borrador</span> —
+      <strong>nada se publica solo</strong> en este paso: revisas y editas
+      cualquier campo en la ficha del anuncio antes de publicar.
+    </p>
+    <p class="meta">
+      El precio mínimo no es solo un dato más: es el único campo que la IA
+      <strong>nunca ve</strong>. Se guarda cifrado aparte y solo lo lee el
+      motor de negociación (ver el paso 3) para decidir qué hacer con una
+      oferta — la IA solo se entera de la decisión ya tomada, nunca del
+      número que la originó.
+    </p>
+    <p>
+      Cuando el borrador está listo, "Publicar ahora" lo manda a Vinted de
+      verdad (respetando el <a href="#ritmo">ritmo seguro</a>). Si prefieres
+      no tocar nada, activa "Publicar borradores solo" en la fila de la
+      cuenta en el dashboard: el trabajador en segundo plano publica los
+      borradores listos (con fotos y precio mínimo puestos) él solo, al
+      ritmo seguro.
+    </p>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="negociacion">
+  <div class="tutorial-step-number">3</div>
+  <div>
+    <h2 class="mt-0">Cómo decide el motor de negociación</h2>
+    <p>
+      Cuando llega una oferta, un cálculo simple (código, no IA) compara el
+      importe ofrecido contra el precio mínimo del anuncio:
+    </p>
+    <div class="tutorial-threshold-bar">
+      <div class="tutorial-threshold seg-reject">
+        <strong>Rechazar</strong><span>menos del 40%</span>
+      </div>
+      <div class="tutorial-threshold seg-counter">
+        <strong>Contraofertar</strong><span>40% – 74%</span>
+      </div>
+      <div class="tutorial-threshold seg-accept">
+        <strong>Aceptar</strong><span>75% o más</span>
+      </div>
+    </div>
+    <p class="meta">Porcentaje = oferta recibida ÷ precio mínimo del anuncio.</p>
+    <p>
+      Solo <strong>después</strong> de decidir, la IA entra en juego: redacta
+      la respuesta en tono amable a partir de la decisión ya tomada (aceptar,
+      contraofertar con tal importe, o rechazar). No puede cambiar el número
+      ni verlo comparado contra nada — recibe la decisión hecha, como quien
+      redacta un mensaje que ya le han dictado.
+    </p>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="aprobar">
+  <div class="tutorial-step-number">4</div>
+  <div>
+    <h2 class="mt-0">Aprobar a mano, o dejar que se mande sola</h2>
+    <p>
+      Por defecto, cada oferta decidida y redactada se queda
+      <span class="badge muted">pendiente</span> en
+      <a href="/offers">Negociación</a>, esperando a que pulses
+      "Aprobar y enviar" o "Descartar". Nada se manda a un comprador sin que
+      lo veas primero.
+    </p>
+    <p>
+      Si prefieres automatizarlo del todo, activa "Responder ofertas sin
+      aprobar" en la fila de la cuenta en el dashboard — a partir de ahí, el
+      trabajador en segundo plano manda la respuesta él solo en cuanto la
+      decide, sin pasar por el panel.
+    </p>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="ritmo">
+  <div class="tutorial-step-number">5</div>
+  <div>
+    <h2 class="mt-0">El ritmo seguro</h2>
+    <p>
+      Vinted no ofrece una vía oficial y gratuita para mensajes y ofertas, así
+      que esa parte usa tu propia sesión — y automatizar una sesión sin
+      freno puede acabar en una suspensión de la cuenta. Por eso cada acción
+      (publicar, mandar un mensaje, responder una oferta) pasa primero por
+      un límite configurable en <a href="/settings">Ajustes</a>:
+    </p>
+    <ul style="margin:8px 0 14px; padding-left:20px; line-height:1.8">
+      <li>una <strong>cadencia mínima</strong> entre acciones (180-600s por defecto)</li>
+      <li>un <strong>tope de acciones al día</strong> por cuenta (50 por defecto)</li>
+      <li>una <strong>pausa nocturna</strong> (23:00-8:00 por defecto)</li>
+    </ul>
+    <p class="meta">
+      Este límite es un freno propio, no un intento de parecer "más humano"
+      ante Vinted: no hay proxies ni huellas de navegador falsas en ningún
+      sitio del código, solo peticiones normales con tu sesión, espaciadas a
+      un ritmo conservador.
+    </p>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="vendido">
+  <div class="tutorial-step-number">6</div>
+  <div>
+    <h2 class="mt-0">Marcar como vendido y el seguimiento DAC7</h2>
+    <p>
+      Cuando un anuncio publicado se vende, entra en su ficha y pulsa
+      "Marcar como vendido" con el importe real. Eso es lo único que
+      alimenta la pestaña <a href="/compliance">DAC7</a>: el resumen de
+      ingresos y transacciones del año por cuenta, frente a los umbrales que
+      obligan a Vinted a reportar tus datos a Hacienda (2.000€ o 30
+      transacciones, lo que llegue antes — configurable en Ajustes). Es un
+      aviso con antelación, no una gestión fiscal ni sustituye asesoría.
+    </p>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="ajustes">
+  <div class="tutorial-step-number">7</div>
+  <div>
+    <h2 class="mt-0">Ajustes, en una frase cada uno</h2>
+    <table style="margin-top:10px">
+      <tbody>
+        <tr><td style="width:160px"><strong>Inteligencia artificial</strong></td><td>Qué modelo redacta los anuncios y las respuestas; sin clave configurada, usa un modo simulado gratuito para poder probar el panel entero</td></tr>
+        <tr><td><strong>Vinted</strong></td><td>Dominio (por país) y credenciales de la vía oficial, si la usas</td></tr>
+        <tr><td><strong>Ritmo seguro</strong></td><td>Los tres límites del paso 5</td></tr>
+        <tr><td><strong>DAC7</strong></td><td>Los umbrales de aviso del paso 6</td></tr>
+        <tr><td><strong>Stripe</strong></td><td>Cobro de la suscripción del panel (paso 8) — opcional del todo</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel tutorial-step" id="suscripcion">
+  <div class="tutorial-step-number">8</div>
+  <div>
+    <h2 class="mt-0">Planes y suscripción</h2>
+    <p>
+      La pestaña <a href="/billing">Suscripción</a> compara tu uso real
+      (cuentas conectadas y anuncios generados este mes) contra tres planes
+      pensados para cobrar por cuenta conectada y volumen, no por persona —
+      con el recomendado marcado. Con Stripe configurado en Ajustes, el
+      botón de cada plan abre un pago de verdad.
+    </p>
+  </div>
+</div>
+
+<div class="panel" id="faq">
+  <h2 class="mt-0">Preguntas frecuentes</h2>
+
+  <details class="tutorial-faq">
+    <summary>¿La IA puede ver mi precio mínimo?</summary>
+    <p>No, nunca. El motor de negociación es código normal (sin IA) que lee el precio mínimo, decide, y solo entonces le pasa a la IA la decisión ya tomada — nunca el número que la originó ni la cuenta que hizo con él.</p>
+  </details>
+
+  <details class="tutorial-faq">
+    <summary>¿Qué pasa si se me olvida revisar una oferta?</summary>
+    <p>Nada: se queda pendiente en Negociación indefinidamente. No se manda nada solo salvo que hayas activado explícitamente "Responder ofertas sin aprobar" para esa cuenta.</p>
+  </details>
+
+  <details class="tutorial-faq">
+    <summary>Mi cuenta aparece en "Error", ¿qué hago?</summary>
+    <p>Casi siempre es la sesión caducada. Ve al dashboard, abre "Reconectar sesión" en la fila de esa cuenta y pega una cookie nueva — no hace falta borrar la cuenta ni pierdes sus anuncios u ofertas.</p>
+  </details>
+
+  <details class="tutorial-faq">
+    <summary>¿Puedo usar el panel sin clave de Anthropic?</summary>
+    <p>Sí. Sin <code>ANTHROPIC_API_KEY</code> configurada, la IA funciona en modo simulado: genera un borrador de relleno claramente marcado como tal, para poder probar el flujo entero sin gastar nada.</p>
+  </details>
+
+  <details class="tutorial-faq">
+    <summary>¿Esto es una app oficial de Vinted?</summary>
+    <p>No. VintedBot es una herramienta independiente que automatiza tu propia cuenta usando tu propia sesión o el acceso de vendedor profesional de Vinted — no está afiliada ni respaldada por Vinted.</p>
+  </details>
+</div>
+
+{% endblock %}
