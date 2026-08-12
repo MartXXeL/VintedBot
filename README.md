@@ -240,7 +240,7 @@ que hacer.
 
 ## Variables de entorno
 
-Todas tienen un valor por defecto sensato; la mayoría también se pueden
+Todas tienen un valor por defecto; la mayoría también se pueden
 editar desde **Ajustes** en el propio panel (que reescribe `.env`).
 
 | Variable | Obligatoria | Por defecto | Descripción |
