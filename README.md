@@ -317,8 +317,7 @@ estado.
   bloqueo de 5 minutos tras 5 intentos fallidos por IP; sesión con cookie
   `HttpOnly`+`SameSite=Lax` (+`Secure` con `DASHBOARD_FORCE_HTTPS`).
 - **Permisos por rol**: un `member` solo ve y gestiona sus propias cuentas,
-  anuncios y ofertas; Ajustes y Administración exigen rol `admin`. Un admin
-  no puede quitarse su propio rol ni desactivar su propia cuenta por error.
+  anuncios y ofertas; Ajustes y Administración exigen rol `admin`. Un admin no puede quitarse su propio rol ni desactivar su propia cuenta por error.
 - **Cifrado en reposo**: la sesión de cada cuenta de Vinted y el precio
   mínimo de cada anuncio se cifran con Fernet/AES antes de tocar disco; la
   clave se genera sola y vive en `.env` (`DB_ENCRYPTION_KEY`).
